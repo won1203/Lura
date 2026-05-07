@@ -10,4 +10,10 @@ interface AlarmRepository {
         weekdays: List<AlarmWeekday>
     ): AlarmSchedule
     fun setAlarmEnabled(alarmId: String, isEnabled: Boolean): AlarmSchedule?
+    fun updateAlarmSound(
+        alarmId: String,
+        category: SoundCategory,
+        sound: SoundItem
+    ): AlarmSchedule?
+    fun deleteAlarm(alarmId: String): Boolean
 }

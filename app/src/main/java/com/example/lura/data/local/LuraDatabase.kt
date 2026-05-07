@@ -5,15 +5,18 @@ import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
 import androidx.room.TypeConverters
+import androidx.room.migration.Migration
+import androidx.sqlite.db.SupportSQLiteDatabase
 
 @Database(
-    entities = [AlarmEntity::class],
-    version = 1,
+    entities = [AlarmEntity::class, SleepSessionEntity::class],
+    version = 2,
     exportSchema = true
 )
 @TypeConverters(AlarmConverters::class)
 abstract class LuraDatabase : RoomDatabase() {
     abstract fun alarmDao(): AlarmDao
+    abstract fun sleepSessionDao(): SleepSessionDao
 
     companion object {
         @Volatile
@@ -29,8 +32,30 @@ abstract class LuraDatabase : RoomDatabase() {
                 context,
                 LuraDatabase::class.java,
                 DATABASE_NAME
-            ).build()
+            )
+                .addMigrations(MIGRATION_1_2)
+                .build()
 
         private const val DATABASE_NAME = "lura.db"
+
+        private val MIGRATION_1_2 = object : Migration(1, 2) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    """
+                    CREATE TABLE IF NOT EXISTS `sleep_sessions` (
+                        `sessionId` TEXT NOT NULL,
+                        `alarmId` TEXT NOT NULL,
+                        `sleepSoundId` TEXT NOT NULL,
+                        `startedAtEpochMillis` INTEGER NOT NULL,
+                        `targetAlarmAtEpochMillis` INTEGER NOT NULL,
+                        `status` TEXT NOT NULL,
+                        PRIMARY KEY(`sessionId`)
+                    )
+                    """.trimIndent()
+                )
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_sleep_sessions_status` ON `sleep_sessions` (`status`)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_sleep_sessions_alarmId` ON `sleep_sessions` (`alarmId`)")
+            }
+        }
     }
 }

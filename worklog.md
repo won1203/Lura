@@ -1,5 +1,37 @@
 # Worklog
 
+## Alarm Delete Flow - 2026-05-08
+
+### 변경 사항
+- 알람 히스토리 카드 우측 하단에 `삭제` 텍스트 버튼을 추가했다.
+- 삭제 버튼을 누르면 확인 다이얼로그를 표시하고, 확인 시 해당 알람의 활성 `SleepSession`을 `CANCELLED`로 전환한 뒤 알람 레코드를 삭제한다.
+- 삭제는 `AlarmRepository.deleteAlarm()` 계약으로 노출해 UI가 DAO 세부 구현을 직접 알지 않도록 했다.
+- `RoomAlarmRepository.deleteAlarm()`은 Room 트랜잭션 안에서 세션 취소와 알람 삭제를 함께 수행한다.
+
+### 설계 결정 이유
+- 삭제 버튼을 On/Off 스위치 옆에 두면 실수 조작 가능성이 커지므로 카드 우측 하단 텍스트 버튼으로 배치했다.
+- 알람 레코드만 삭제하면 실행 중 세션이 남아 재생, 예약, 재시작 복구가 삭제된 알람을 참조할 수 있다. 따라서 삭제 명령은 활성 세션 취소와 알람 삭제를 하나의 도메인 동작으로 처리한다.
+- 추후 백엔드 연동 시에도 같은 계약을 유지하면 로컬 DB 삭제와 원격 삭제를 동일한 유스케이스 안에서 확장할 수 있다.
+
+### 검증
+- `.\gradlew.bat testDebugUnitTest` 실행 결과 `BUILD SUCCESSFUL`.
+
+## Alarm History Category Reselection - 2026-05-08
+
+### 변경 사항
+- 알람 설정 화면에 카테고리 인자가 없을 때 첫 번째 카테고리로 자동 fallback 되던 흐름을 제거했다.
+- 카테고리 미선택 상태에서도 알람 저장이 가능하도록 `카테고리 미선택`, `수면 소리 미선택` 명시 값을 저장한다.
+- 알람 히스토리 아이템을 클릭하면 카테고리 선택 모달이 뜨고, 선택한 카테고리의 추천 수면 소리로 해당 알람을 재설정한다.
+- 기존 알람 On/Off, SleepSession 생성, 알람 저장 흐름은 변경하지 않았다.
+
+### 설계 결정 이유
+- 사용자가 선택하지 않은 빗소리가 조용히 저장되는 문제를 막기 위해 자동 선택 대신 명시적 미선택 상태를 저장했다.
+- DB 스키마 변경과 nullable 전파를 피하고 요청 범위를 제한하기 위해 미선택 상태는 도메인 상수로 표현했다.
+- 히스토리에서 재설정하는 요구사항에 맞춰 기존 알람 레코드의 카테고리/수면 소리 필드만 갱신하는 DAO 메서드를 추가했다.
+
+### 검증
+- `.\gradlew.bat testDebugUnitTest` 실행 결과 `BUILD SUCCESSFUL`.
+
 ## 2026-05-07 - 현재 상태 기준 로드맵 재정렬
 
 ### 작업 범위
@@ -577,7 +609,30 @@
 - 최종 UI/UX 폴리싱 후 릴리스 빌드 설정을 정리한다.
 - 이 단계의 목적은 명세서의 `Phase 5: 마무리 및 배포`에 해당한다.
 
-### 다음 즉시 작업
-- 다음 구현 단위는 `수면 세션 도메인 + 알람 저장 후 즉시 재생 시작 흐름`이다.
-- 이 작업이 완료되면 알람 설정 버튼은 단순 저장 버튼이 아니라 수면 세션을 시작하는 진입점이 된다.
-- 이후 바로 `SleepPlaybackService`, `AlarmManager`, Android 기본 알람음 재생을 순서대로 연결한다.
+## Sleep Session Domain Separation - 2026-05-07
+
+### 변경 사항
+- `AlarmSchedule`은 저장된 알람 계획 모델로 유지하고, 현재 실행 중인 수면 상태를 표현하는 `SleepSession`과 `SleepSessionStatus`를 새 도메인 모델로 추가했다.
+- `sleep_sessions` Room 테이블, DAO, 매퍼, 상태 TypeConverter를 추가하고 DB 버전을 2로 올렸다.
+- `MIGRATION_1_2`를 추가해 기존 `alarms` 데이터는 유지하면서 `sleep_sessions` 테이블과 `status`, `alarmId` 인덱스를 생성하도록 했다.
+- `SaveAlarmAndStartSleepSession` 유스케이스를 추가해 알람 저장 버튼의 책임을 `saveAlarm()` 직접 호출에서 명령형 실행 흐름으로 이동했다.
+- 새 수면 세션 시작 시 기존 `PLAYING`, `ALARMING` 세션을 `CANCELLED`로 닫고 새 세션을 `PLAYING`으로 생성하도록 했다.
+- 반복 요일과 현재 시각을 기준으로 다음 목표 알람 시각을 계산하는 `AlarmTargetTimeCalculator`를 추가했다.
+- `AlarmSetupFragment`는 Room 저장소 구현을 직접 알지 않고 `SaveAlarmAndStartSleepSessionProvider`를 통해 실행 유스케이스만 호출하도록 변경했다.
+- `AlarmTargetTimeCalculatorTest`를 추가해 당일 미래 시각, 당일 경과 후 다음 주 이동, 복수 요일 중 최근접 요일 선택을 검증했다.
+
+### 설계 결정 이유
+- 저장 데이터와 실행 상태를 같은 모델에 넣으면 알람 목록 표시, 재생 상태, 예약 취소, 앱 재시작 복구가 서로의 필드 의미를 침범한다. 따라서 `AlarmSchedule`은 계획, `SleepSession`은 실행 인스턴스로 분리했다.
+- Fragment에서 저장과 세션 시작을 순서대로 직접 호출하면 UI 계층이 도메인 실행 정책을 갖게 된다. 이를 막기 위해 `SaveAlarmAndStartSleepSession`을 유스케이스 경계로 두었다.
+- 알람 저장과 활성 세션 교체는 하나의 사용자 명령이므로 `database.runInTransaction` 안에서 처리했다. 중간 실패로 알람만 저장되고 세션이 시작되지 않는 불일치를 줄이기 위한 선택이다.
+- 활성 세션은 하나만 존재해야 재생 서비스, AlarmManager 예약, 취소, 복구 로직이 단순해진다. 그래서 새 세션 생성 전에 기존 활성 세션을 명시적으로 취소한다.
+- `java.time` 대신 `Calendar`를 사용했다. 현재 `minSdk`가 24이고 별도 desugaring 설정이 없으므로 API 26 미만 런타임 호환성을 우선했다.
+
+### 직면했던 이슈 및 해결
+- Gradle 테스트가 기본 샌드박스 사용자 홈의 `.gradle`, `.android` 쓰기 제한으로 실패했다. 프로젝트 내부 `GRADLE_USER_HOME`을 지정하고, Android Gradle Plugin의 `.android` 접근은 승인된 상승 권한으로 실행해 검증했다.
+- Room export schema가 켜져 있어 DB 버전 변경 후 스키마 산출물이 필요했다. `testDebugUnitTest` 실행으로 `app/schemas/com.example.lura.data.local.LuraDatabase/2.json`을 생성했다.
+- 활성 세션 조회는 앞으로 앱 재시작 복구의 핵심 경로가 되므로 `status` 인덱스를 추가했다. 알람별 세션 추적 가능성을 위해 `alarmId` 인덱스도 함께 추가했다.
+
+### 검증
+- `.\gradlew.bat testDebugUnitTest` 실행 결과 `BUILD SUCCESSFUL`.
+- 새 단위 테스트 `AlarmTargetTimeCalculatorTest` 3건 통과.

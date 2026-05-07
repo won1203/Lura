@@ -18,4 +18,29 @@ interface AlarmDao {
 
     @Query("UPDATE alarms SET isEnabled = :isEnabled WHERE id = :alarmId")
     fun setAlarmEnabled(alarmId: String, isEnabled: Boolean): Int
+
+    @Query(
+        """
+        UPDATE alarms
+        SET categoryId = :categoryId,
+            categoryName = :categoryName,
+            soundId = :soundId,
+            soundTitle = :soundTitle,
+            soundTags = :soundTags,
+            soundDurationMinutes = :soundDurationMinutes
+        WHERE id = :alarmId
+        """
+    )
+    fun updateAlarmSound(
+        alarmId: String,
+        categoryId: String,
+        categoryName: String,
+        soundId: String,
+        soundTitle: String,
+        soundTags: String,
+        soundDurationMinutes: Int
+    ): Int
+
+    @Query("DELETE FROM alarms WHERE id = :alarmId")
+    fun deleteAlarm(alarmId: String): Int
 }

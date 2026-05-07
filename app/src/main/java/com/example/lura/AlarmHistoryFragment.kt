@@ -6,11 +6,15 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.CompoundButton
 import android.widget.TextView
+import androidx.appcompat.app.AlertDialog
 import androidx.fragment.app.Fragment
 import com.example.lura.data.AlarmRepository
 import com.example.lura.data.AlarmRepositoryProvider
 import com.example.lura.data.AlarmSchedule
+import com.example.lura.data.MockSoundRepository
+import com.example.lura.data.SoundCategory
 import com.example.lura.databinding.FragmentAlarmHistoryBinding
+import com.google.android.material.button.MaterialButton
 import com.google.android.material.switchmaterial.SwitchMaterial
 
 class AlarmHistoryFragment : Fragment() {
@@ -20,6 +24,7 @@ class AlarmHistoryFragment : Fragment() {
     private val alarmRepository: AlarmRepository by lazy {
         AlarmRepositoryProvider.get(requireContext().applicationContext)
     }
+    private val soundRepository = MockSoundRepository
 
     override fun onCreateView(
         inflater: LayoutInflater,
@@ -45,6 +50,7 @@ class AlarmHistoryFragment : Fragment() {
                 binding.alarmList,
                 false
             )
+            itemView.setOnClickListener { showCategorySelectionDialog(alarm) }
             bindAlarmItem(itemView, alarm)
             binding.alarmList.addView(itemView)
         }
@@ -67,6 +73,10 @@ class AlarmHistoryFragment : Fragment() {
         enabledSwitch.setOnCheckedChangeListener(null)
         enabledSwitch.isChecked = alarm.isEnabled
         enabledSwitch.setOnCheckedChangeListener(createAlarmToggleListener(alarm.id))
+
+        itemView.findViewById<MaterialButton>(R.id.delete_alarm_button).setOnClickListener {
+            showDeleteAlarmDialog(alarm)
+        }
     }
 
     private fun createAlarmToggleListener(alarmId: String): CompoundButton.OnCheckedChangeListener =
@@ -77,6 +87,41 @@ class AlarmHistoryFragment : Fragment() {
 
     private fun getStatusText(isEnabled: Boolean): String =
         getString(if (isEnabled) R.string.alarm_status_on else R.string.alarm_status_off)
+
+    private fun showCategorySelectionDialog(alarm: AlarmSchedule) {
+        val categories = soundRepository.getCategories()
+        val categoryNames = categories.map { it.name }.toTypedArray()
+
+        AlertDialog.Builder(requireContext())
+            .setTitle(R.string.category_selection_dialog_title)
+            .setItems(categoryNames) { _, which ->
+                updateAlarmCategory(alarm.id, categories[which])
+            }
+            .show()
+    }
+
+    private fun updateAlarmCategory(alarmId: String, category: SoundCategory) {
+        val recommendedSound = soundRepository.getRecommendedSound(category.id)
+            ?: return
+        alarmRepository.updateAlarmSound(
+            alarmId = alarmId,
+            category = category,
+            sound = recommendedSound
+        )
+        renderAlarms(alarmRepository.getAlarms())
+    }
+
+    private fun showDeleteAlarmDialog(alarm: AlarmSchedule) {
+        AlertDialog.Builder(requireContext())
+            .setTitle(R.string.delete_alarm_dialog_title)
+            .setMessage(R.string.delete_alarm_dialog_message)
+            .setPositiveButton(R.string.delete_alarm_confirm) { _, _ ->
+                alarmRepository.deleteAlarm(alarm.id)
+                renderAlarms(alarmRepository.getAlarms())
+            }
+            .setNegativeButton(R.string.delete_alarm_cancel, null)
+            .show()
+    }
 
     override fun onDestroyView() {
         super.onDestroyView()

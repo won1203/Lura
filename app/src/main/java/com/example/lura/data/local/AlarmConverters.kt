@@ -2,6 +2,7 @@ package com.example.lura.data.local
 
 import androidx.room.TypeConverter
 import com.example.lura.data.AlarmWeekday
+import com.example.lura.data.SleepSessionStatus
 
 class AlarmConverters {
     @JvmName("weekdaysToStorageValueConverter")
@@ -21,6 +22,14 @@ class AlarmConverters {
             .mapNotNull { weekdaysByName[it] }
             .sortedBy { it.sortOrder }
     }
+
+    @TypeConverter
+    fun sleepSessionStatusToStorageValue(status: SleepSessionStatus): String =
+        status.name
+
+    @TypeConverter
+    fun storageValueToSleepSessionStatus(value: String): SleepSessionStatus =
+        SleepSessionStatus.valueOf(value)
 
     private companion object {
         const val LIST_DELIMITER = "|"

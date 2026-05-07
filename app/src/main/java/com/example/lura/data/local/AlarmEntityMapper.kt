@@ -46,7 +46,7 @@ object AlarmEntityMapper {
             isEnabled = entity.isEnabled
         )
 
-    private fun encodeTags(tags: List<String>): String {
+    fun encodeTags(tags: List<String>): String {
         val jsonArray = JSONArray()
         tags.forEach(jsonArray::put)
         return jsonArray.toString()

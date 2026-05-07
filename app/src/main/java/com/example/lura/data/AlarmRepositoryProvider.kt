@@ -13,9 +13,12 @@ object AlarmRepositoryProvider {
             repository ?: createRepository(context.applicationContext).also { repository = it }
         }
 
-    private fun createRepository(context: Context): AlarmRepository =
-        RoomAlarmRepository(
-            alarmDao = LuraDatabase.getInstance(context).alarmDao(),
+    private fun createRepository(context: Context): AlarmRepository {
+        val database = LuraDatabase.getInstance(context)
+        return RoomAlarmRepository(
+            database = database,
+            alarmDao = database.alarmDao(),
             diskExecutor = Executors.newSingleThreadExecutor()
         )
+    }
 }

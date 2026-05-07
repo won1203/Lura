@@ -18,9 +18,9 @@ import androidx.core.content.ContextCompat
 import androidx.fragment.app.Fragment
 import androidx.navigation.fragment.findNavController
 import com.example.lura.data.AlarmWeekday
-import com.example.lura.data.AlarmRepository
-import com.example.lura.data.AlarmRepositoryProvider
 import com.example.lura.data.MockSoundRepository
+import com.example.lura.data.SaveAlarmAndStartSleepSession
+import com.example.lura.data.SaveAlarmAndStartSleepSessionProvider
 import com.example.lura.databinding.FragmentAlarmSetupBinding
 import kotlin.math.roundToInt
 
@@ -29,8 +29,8 @@ class AlarmSetupFragment : Fragment() {
     private var _binding: FragmentAlarmSetupBinding? = null
     private val binding get() = _binding!!
     private val soundRepository = MockSoundRepository
-    private val alarmRepository: AlarmRepository by lazy {
-        AlarmRepositoryProvider.get(requireContext().applicationContext)
+    private val saveAlarmAndStartSleepSession: SaveAlarmAndStartSleepSession by lazy {
+        SaveAlarmAndStartSleepSessionProvider.get(requireContext().applicationContext)
     }
     private val weekdays = AlarmWeekday.values().sortedBy { it.sortOrder }
     private val selectedWeekdays = weekdays.toMutableSet()
@@ -49,11 +49,10 @@ class AlarmSetupFragment : Fragment() {
         super.onViewCreated(view, savedInstanceState)
 
         val categoryId = arguments?.getString(ARG_CATEGORY_ID)
-            ?: soundRepository.getCategories().firstOrNull()?.id.orEmpty()
-        val category = soundRepository.getCategory(categoryId)
-        val recommendedSound = soundRepository.getRecommendedSound(categoryId)
+        val category = categoryId?.let(soundRepository::getCategory)
+        val recommendedSound = categoryId?.let(soundRepository::getRecommendedSound)
 
-        if (category == null || recommendedSound == null) {
+        if (categoryId != null && (category == null || recommendedSound == null)) {
             Toast.makeText(requireContext(), R.string.alarm_setup_load_failed, Toast.LENGTH_SHORT).show()
             return
         }
@@ -79,7 +78,7 @@ class AlarmSetupFragment : Fragment() {
                 return@setOnClickListener
             }
 
-            alarmRepository.saveAlarm(
+            saveAlarmAndStartSleepSession.execute(
                 category = category,
                 sound = recommendedSound,
                 hour = binding.alarmTimePicker.hour,

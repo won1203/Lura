@@ -1,0 +1,159 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.core.widget.NestedScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/lura_background"
+    android:fillViewport="true"
+    tools:context=".AlarmSetupFragment">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:paddingStart="24dp"
+        android:paddingTop="28dp"
+        android:paddingEnd="24dp"
+        android:paddingBottom="32dp">
+
+        <TextView
+            android:id="@+id/time_picker_label"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="@string/time_picker_label"
+            android:textColor="@color/lura_text_primary"
+            android:textSize="18sp"
+            android:textStyle="bold" />
+
+        <FrameLayout
+            android:layout_width="match_parent"
+            android:layout_height="260dp"
+            android:layout_marginTop="10dp">
+
+            <TimePicker
+                android:id="@+id/alarm_time_picker"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:background="@android:color/transparent"
+                android:paddingTop="18dp"
+                android:paddingBottom="18dp"
+                android:timePickerMode="spinner" />
+
+            <LinearLayout
+                android:id="@+id/selected_time_overlay"
+                android:layout_width="176dp"
+                android:layout_height="72dp"
+                android:layout_gravity="center"
+                android:background="@color/lura_background"
+                android:clickable="false"
+                android:focusable="false"
+                android:gravity="center"
+                android:importantForAccessibility="no"
+                android:orientation="horizontal">
+
+                <TextView
+                    android:id="@+id/selected_hour_text"
+                    android:layout_width="72dp"
+                    android:layout_height="match_parent"
+                    android:gravity="center"
+                    android:textColor="@color/lura_time_picker_text"
+                    android:textSize="34sp"
+                    android:textStyle="bold"
+                    tools:text="07" />
+
+                <TextView
+                    android:id="@+id/selected_time_separator"
+                    android:layout_width="32dp"
+                    android:layout_height="match_parent"
+                    android:gravity="center"
+                    android:text="@string/time_separator"
+                    android:textColor="@color/lura_text_secondary"
+                    android:textSize="24sp"
+                    android:textStyle="bold" />
+
+                <TextView
+                    android:id="@+id/selected_minute_text"
+                    android:layout_width="72dp"
+                    android:layout_height="match_parent"
+                    android:gravity="center"
+                    android:textColor="@color/lura_time_picker_text"
+                    android:textSize="34sp"
+                    android:textStyle="bold"
+                    tools:text="00" />
+            </LinearLayout>
+        </FrameLayout>
+
+        <com.google.android.material.card.MaterialCardView
+            android:id="@+id/weekday_picker_card"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="22dp"
+            app:cardBackgroundColor="@color/lura_surface"
+            app:cardCornerRadius="8dp"
+            app:cardElevation="0dp"
+            app:strokeColor="@color/lura_stroke"
+            app:strokeWidth="1dp">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:padding="18dp">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal">
+
+                    <TextView
+                        android:id="@+id/weekday_picker_label"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="@string/weekday_picker_label"
+                        android:textColor="@color/lura_text_primary"
+                        android:textSize="18sp"
+                        android:textStyle="bold" />
+
+                    <TextView
+                        android:id="@+id/selected_weekdays_summary"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:textColor="@color/lura_accent"
+                        android:textSize="14sp"
+                        android:textStyle="bold"
+                        tools:text="매일" />
+                </LinearLayout>
+
+                <HorizontalScrollView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="18dp"
+                    android:fillViewport="false"
+                    android:overScrollMode="never"
+                    android:scrollbars="none">
+
+                    <LinearLayout
+                        android:id="@+id/weekday_selector"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal" />
+                </HorizontalScrollView>
+            </LinearLayout>
+        </com.google.android.material.card.MaterialCardView>
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/save_alarm_button"
+            android:layout_width="match_parent"
+            android:layout_height="56dp"
+            android:layout_marginTop="24dp"
+            android:backgroundTint="@color/lura_accent"
+            android:text="@string/save_alarm"
+            android:textColor="@color/lura_background"
+            android:textSize="16sp"
+            android:textStyle="bold"
+            app:cornerRadius="8dp" />
+    </LinearLayout>
+</androidx.core.widget.NestedScrollView>

@@ -1,0 +1,34 @@
+<resources>
+    <string name="app_name">Lura</string>
+    <string name="home_fragment_label" />
+    <string name="alarm_setup_fragment_label">알람 설정</string>
+    <string name="alarm_history_fragment_label">알람 히스토리</string>
+    <string name="bottom_nav_home">홈</string>
+    <string name="bottom_nav_alarm_setup">알람 설정</string>
+    <string name="bottom_nav_alarm_history">히스토리</string>
+    <string name="time_picker_label">알람 시간</string>
+    <string name="time_separator">:</string>
+    <string name="two_digit_time_format">%1$02d</string>
+    <string name="save_alarm">알람 저장</string>
+    <string name="alarm_setup_load_failed">추천 음원을 불러오지 못했습니다.</string>
+    <string name="history_eyebrow">SAVED ALARMS</string>
+    <string name="history_title">저장된 알람</string>
+    <string name="history_description">설정한 알람을 다시 확인하고 필요할 때 켜거나 끌 수 있습니다.</string>
+    <string name="empty_alarm_message">아직 저장된 알람이 없습니다.</string>
+    <string name="alarm_time_format">%1$02d:%2$02d</string>
+    <string name="alarm_repeat_days_format">반복: %1$s</string>
+    <string name="alarm_status_on">알람 켜짐</string>
+    <string name="alarm_status_off">알람 꺼짐</string>
+    <string name="weekday_picker_label">반복 요일</string>
+    <string name="repeat_every_day">매일</string>
+    <string name="weekday_select_required">요일을 선택하세요</string>
+    <string name="weekday_sunday_short">일</string>
+    <string name="weekday_monday_short">월</string>
+    <string name="weekday_tuesday_short">화</string>
+    <string name="weekday_wednesday_short">수</string>
+    <string name="weekday_thursday_short">목</string>
+    <string name="weekday_friday_short">금</string>
+    <string name="weekday_saturday_short">토</string>
+    <string name="weekday_selected_content_description">%1$s요일 선택됨</string>
+    <string name="weekday_unselected_content_description">%1$s요일 선택 안 됨</string>
+</resources>

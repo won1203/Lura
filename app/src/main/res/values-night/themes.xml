@@ -1,0 +1,15 @@
+<resources xmlns:tools="http://schemas.android.com/tools">
+    <!-- Base application theme. -->
+    <style name="Base.Theme.Lura" parent="Theme.Material3.DayNight.NoActionBar">
+        <item name="android:windowBackground">@color/lura_background</item>
+        <item name="android:windowNoTitle">true</item>
+        <item name="android:windowActionBar">false</item>
+        <item name="android:windowLightStatusBar">false</item>
+        <item name="android:statusBarColor">@color/lura_background</item>
+        <item name="android:navigationBarColor">@color/lura_background</item>
+        <item name="colorPrimary">@color/lura_accent</item>
+        <item name="colorOnPrimary">@color/lura_background</item>
+        <item name="colorSurface">@color/lura_surface</item>
+        <item name="colorOnSurface">@color/lura_text_primary</item>
+    </style>
+</resources>

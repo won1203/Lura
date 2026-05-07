@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="black">#FF000000</color>
+    <color name="white">#FFFFFFFF</color>
+    <color name="lura_background">#111827</color>
+    <color name="lura_surface">#1F2937</color>
+    <color name="lura_surface_elevated">#263445</color>
+    <color name="lura_text_primary">#F8FAFC</color>
+    <color name="lura_text_secondary">#B6C2D1</color>
+    <color name="lura_accent">#7DD3C7</color>
+    <color name="lura_brand_shadow">#667DD3C7</color>
+    <color name="lura_time_picker_text">#FFFFFFFF</color>
+    <color name="lura_stroke">#334155</color>
+    <color name="lura_chip_background">#173B44</color>
+</resources>

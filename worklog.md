@@ -557,7 +557,7 @@
 - `LuraDatabase`, `AlarmDao`, `AlarmEntity`, `AlarmConverters`, `AlarmEntityMapper`가 추가되어 UI 모델과 DB 스키마가 분리되었다.
 - Fragment는 `AlarmRepositoryProvider`를 통해 Repository를 받아오므로 저장소 구현체 교체가 UI에 직접 전파되지 않는다.
 
-### 1순위 - 수면 세션 도메인 및 실행 흐름 정리
+### 1순위 - 수면 세션 도메인 및 실행 흐름 정리 - o
 - 알람 설정은 단순 저장으로 끝나지 않고 즉시 수면 세션을 시작하는 명령으로 재정의한다.
 - `AlarmSchedule`은 저장된 알람 계획으로 유지하고, 현재 실행 중인 수면 상태는 별도 `SleepSession` 모델로 분리한다.
 - `SleepSession`에는 `sessionId`, `alarmId`, `sleepSoundId`, `startedAtEpochMillis`, `targetAlarmAtEpochMillis`, `status(PLAYING, ALARMING, COMPLETED, CANCELLED)`를 둔다.
@@ -636,3 +636,98 @@
 ### 검증
 - `.\gradlew.bat testDebugUnitTest` 실행 결과 `BUILD SUCCESSFUL`.
 - 새 단위 테스트 `AlarmTargetTimeCalculatorTest` 3건 통과.
+
+## Sleep Playback Pipeline - 2026-05-09
+
+### 변경 사항
+- `Media3 ExoPlayer`와 `MediaSessionService` 의존성을 추가하고 `SleepPlaybackService`를 등록했다.
+- `SleepPlaybackRequest`, `SleepPlaybackController`, `SleepSoundPlaybackCatalog`를 추가해 알람 저장 결과를 재생 서비스 입력으로 변환하는 경계를 만들었다.
+- `AlarmSetupFragment`는 알람 저장 및 수면 세션 생성이 끝나면 즉시 `SleepPlaybackService`를 ForegroundService로 시작하고 재생 화면으로 이동한다.
+- `PlayerFragment`와 `fragment_player.xml`을 추가해 현재 음원 제목, 카테고리, 태그, 길이, 재생 상태, 재생/일시정지/정지 컨트롤을 제공한다.
+- `MediaSessionService` 기반 상태바 컨트롤을 위해 Manifest에 `FOREGROUND_SERVICE`, `FOREGROUND_SERVICE_MEDIA_PLAYBACK`, `POST_NOTIFICATIONS` 권한과 media playback service 선언을 추가했다.
+- 서버 스트리밍 전 단계 검증용으로 앱 내부 Mock 재생 URI(`data:audio/wav;base64`)를 `SleepSoundPlaybackCatalog`에 격리했다.
+
+### 설계 결정 이유
+- `MediaSessionService`를 사용해 ExoPlayer, 백그라운드 재생, 상태바 미디어 컨트롤의 상태 원천을 하나로 유지했다. 화면과 알림이 별도 상태 머신을 갖지 않게 하기 위한 선택이다.
+- `SleepPlaybackRequest`는 UI/도메인 모델과 서비스 Intent extras 사이의 명시적 계약이다. 이후 S3/Presigned URL이 들어와도 재생 서비스는 source URI만 교체해 받을 수 있다.
+- Mock 음원 URI는 `SoundItem`이나 Room 스키마에 넣지 않았다. 현재 URI는 서버 연동 전 테스트 자산이므로 영속 모델에 섞으면 향후 API 전환 때 마이그레이션 비용이 생긴다.
+- 수면 음원은 알람 도달 전까지 유지되어야 하므로 서비스 내부 ExoPlayer를 `REPEAT_MODE_ONE`으로 설정했다.
+- Player 화면의 정지 동작은 서비스 정지 후 히스토리로 이동하면서 Player 화면을 백스택에서 제거한다. 정지된 재생 화면으로 되돌아가는 UX 혼선을 막기 위한 처리다.
+
+### 직면했던 이슈 및 해결
+- 기본 샌드박스에서는 새 Media3 의존성 다운로드가 네트워크 제한으로 실패했다. 승인된 네트워크 실행으로 의존성을 받은 뒤 동일 Gradle 홈 캐시를 사용해 검증했다.
+- Kotlin daemon은 사용자 홈 임시 파일 권한 문제로 연결에 실패했지만 Gradle이 fallback 컴파일을 수행했고 빌드는 성공했다. 이는 기존 환경 이슈이며 이번 코드 변경의 컴파일 오류는 아니다.
+- `git status`는 저장소 소유자 차이로 `safe.directory` 오류가 발생했다. 전역 Git 설정을 변경하지 않고 `git -c safe.directory=C:/Lura ...`로 조회했다.
+
+### 검증
+- `GRADLE_USER_HOME=C:\Lura\.gradle-home`, `ANDROID_USER_HOME=C:\Lura\.android` 환경으로 `.\gradlew.bat testDebugUnitTest --no-daemon` 실행 결과 `BUILD SUCCESSFUL`.
+- 동일 환경으로 `.\gradlew.bat assembleDebug --no-daemon` 실행 결과 `BUILD SUCCESSFUL`.
+
+## Alarm Save History Redirect - 2026-05-09
+
+### 변경 사항
+- 알람 설정 저장 후 `PlayerFragment`로 이동하던 네비게이션을 제거하고, 저장 직후 히스토리 화면으로 이동하도록 변경했다.
+- 카테고리 선택 알람 저장 시 재생 서비스는 계속 시작하되, 히스토리 화면에서 `%1$s 음원 재생을 시작합니다.` 안내 문구를 표시하도록 했다.
+- `nav_graph.xml`에서 `alarmSetupFragment -> playerFragment` 액션을 제거해 알람 설정 화면이 재생 화면으로 직접 이동하지 않게 했다.
+- 기존 활성 알람이 있는 상태에서 새 카테고리 알람을 저장하면 기존 On 알람은 `RoomSaveAlarmAndStartSleepSession` 트랜잭션에서 Off 처리되고 새 알람만 On 상태로 저장된다.
+
+### 설계 결정 이유
+- 저장 직후 사용자가 확인해야 하는 것은 현재 알람 목록과 활성 상태이므로 히스토리 화면으로 보내는 편이 현재 UX 흐름에 맞다.
+- 재생 화면 이동과 재생 시작은 별개의 책임이다. 재생은 `SleepPlaybackService`가 담당하고, 저장 완료 피드백은 히스토리 안내 문구로 처리했다.
+- 기존 On 알람 비활성화는 UI 후처리가 아니라 저장 트랜잭션 안에서 처리해야 데이터 상태가 항상 단일 활성 알람 정책을 만족한다.
+
+### 검증
+- `GRADLE_USER_HOME=C:\Lura\.gradle-home`, `ANDROID_USER_HOME=C:\Lura\.android` 환경으로 `.\gradlew.bat testDebugUnitTest --no-daemon` 실행 결과 `BUILD SUCCESSFUL`.
+- 동일 환경으로 `.\gradlew.bat assembleDebug --no-daemon` 실행 결과 `BUILD SUCCESSFUL`.
+
+## Unselected Alarm Playback Gate - 2026-05-09
+
+### 변경 사항
+- 카테고리 없이 알람을 저장하면 `UnselectedAlarmSound`로 비활성 알람만 저장하고 재생 화면으로 이동하지 않도록 변경했다.
+- 미선택 저장 후 히스토리 화면에서 `수면 소리를 선택한 후 알람을 켜면 지정된 알람 시간까지 음원이 재생됩니다.` 안내 문구를 Toast로 표시한다.
+- `AlarmRepository.saveAlarm`과 `AlarmEntityMapper.createEntity`에 `isEnabled` 입력을 추가해 저장 시점의 활성 상태를 명시적으로 제어하도록 했다.
+- 히스토리 화면에서 수면 소리가 없는 알람을 On으로 바꾸려 하면 `수면 소리를 먼저 선택하세요.` 안내를 표시하고 DB 상태를 활성화하지 않는다.
+- `StartSleepSessionForAlarm` 유스케이스를 추가해 히스토리 On 전환 시 알람 활성화, 기존 활성 세션 취소, 새 `SleepSession` 생성, 재생 요청 생성을 하나의 트랜잭션 흐름으로 묶었다.
+- `DisableAlarmAndCancelSleepSession` 유스케이스를 추가해 Off 전환 시 해당 알람의 활성 세션이 실제로 취소된 경우에만 재생 서비스를 정지하도록 했다.
+- `SleepPlaybackRequest`에 `targetAlarmAtEpochMillis`를 포함하고 `SleepPlaybackService`가 해당 시각에 수면 음원을 정지하도록 예약했다.
+- 목표 알람 시각 도달로 정지되면 `SleepSession`을 `COMPLETED`, 수동 정지되면 `CANCELLED`로 갱신하도록 `SleepSessionDao.updateActiveSessionStatus()`를 추가했다.
+
+### 설계 결정 이유
+- 카테고리 미선택 알람은 아직 재생 가능한 음원 계약이 없으므로 `SaveAlarmAndStartSleepSession`을 실행하지 않는다. 저장과 실행을 분리해야 잘못된 Player 진입과 무의미한 Mock 재생을 막을 수 있다.
+- 히스토리 On 전환은 단순 boolean 변경이 아니라 수면 세션 시작 명령이다. 이를 Fragment에 흩뿌리지 않고 `StartSleepSessionForAlarm`으로 모아 재생, 세션, 활성 상태가 서로 어긋나지 않게 했다.
+- Off 전환에서 무조건 서비스를 멈추면 다른 알람이 만든 활성 수면 세션까지 끊을 수 있다. 그래서 해당 알람의 활성 세션 취소 여부를 기준으로 서비스 정지를 결정했다.
+- 목표 알람 시각은 이미 `SleepSession` 도메인에 있으므로 재생 요청에 포함했다. 서비스가 목표 시각을 모르면 “알람 시간까지 재생”이라는 실행 정책을 만족할 수 없기 때문이다.
+- 서비스 정지만 하고 DB 상태를 남겨두면 앱 재시작 복구 시 종료된 세션을 활성 세션으로 오인할 수 있다. 그래서 서비스 종료 사유에 맞춰 세션 상태를 함께 마감한다.
+
+### 직면했던 이슈 및 해결
+- 기존 `AlarmEntityMapper`는 모든 신규 알람을 활성 상태로 만들었다. 미선택 알람 저장 요구와 충돌하므로 `isEnabled`를 명시 입력으로 바꿨고 기본값은 기존 동작 보존을 위해 `true`로 유지했다.
+- 히스토리 화면의 switch 초기 바인딩이 저장소 변경 이벤트로 오인되지 않도록 기존처럼 listener를 분리한 뒤 새 On/Off 실행 흐름만 연결했다.
+- Kotlin daemon은 사용자 홈 권한 문제로 fallback 컴파일을 사용했지만, 최종 Gradle 태스크는 성공했다.
+
+### 검증
+- `GRADLE_USER_HOME=C:\Lura\.gradle-home`, `ANDROID_USER_HOME=C:\Lura\.android` 환경으로 `.\gradlew.bat testDebugUnitTest --no-daemon` 실행 결과 `BUILD SUCCESSFUL`.
+- 동일 환경으로 `.\gradlew.bat assembleDebug --no-daemon` 실행 결과 `BUILD SUCCESSFUL`.
+- `git -c safe.directory=C:/Lura diff --check` 실행 결과 공백 오류 없음.
+
+## Single Active Alarm Enforcement - 2026-05-09
+
+### 변경 사항
+- 히스토리에서 Off 상태 알람을 On으로 전환할 때 다른 On 알람이 있으면 `이 알람 설정으로 바꾸시겠습니까? 기존에 켜져 있던 알람은 꺼집니다.` 확인 다이얼로그를 표시하도록 했다.
+- 사용자가 변경을 승인하면 기존 On 알람을 모두 Off 처리하고 선택한 알람만 On으로 전환한 뒤 새 수면 세션과 재생을 시작한다.
+- `AlarmDao.disableEnabledAlarms()`를 추가해 모든 기존 On 알람을 하나의 DB 명령으로 끌 수 있게 했다.
+- `RoomStartSleepSessionForAlarm`은 세션 시작 트랜잭션 안에서 기존 On 알람 전체 Off, 선택 알람 On, 기존 활성 세션 취소, 새 세션 생성을 순서대로 수행한다.
+- `RoomSaveAlarmAndStartSleepSession`과 `RoomAlarmRepository.saveAlarm(..., isEnabled=true)`도 기존 On 알람을 먼저 끄도록 보강해 “활성 알람은 하나”라는 정책이 히스토리뿐 아니라 저장 경로에서도 유지되게 했다.
+- 다이얼로그 취소 또는 바깥 영역 취소 시 히스토리 목록을 다시 렌더링해 사용자가 임시로 켠 switch 표시가 실제 DB 상태와 어긋나지 않게 했다.
+
+### 설계 결정 이유
+- 여러 알람을 On으로 허용하면 수면 음원, 목표 알람 시각, 향후 `AlarmManager` 예약 기준이 서로 충돌한다. 이 앱에서는 “현재 수면 루틴 1개”를 명확히 하는 쪽이 사용자 경험과 복구 로직 모두 단순하다.
+- 단일 활성 정책을 Fragment에서만 처리하면 다른 저장 경로에서 다시 여러 On 알람이 생길 수 있다. 그래서 DAO/유스케이스 트랜잭션에 같은 invariant를 넣었다.
+- 기존 On 알람을 하나씩 끄는 반복 호출 대신 `disableEnabledAlarms()`를 사용했다. DB 상태 전환이 명확하고 중간 상태가 줄어든다.
+
+### 직면했던 이슈 및 해결
+- Switch는 사용자가 탭하는 즉시 UI가 먼저 켜진다. 다이얼로그에서 취소하면 실제 DB는 바뀌지 않으므로 `renderAlarms()`로 UI를 DB 상태에 다시 맞췄다.
+- 새 알람 저장 경로와 히스토리 On 경로가 서로 다른 유스케이스를 타고 있어 단일 활성 정책이 누락될 수 있었다. 두 경로 모두 기존 On 알람을 먼저 끄도록 보강했다.
+
+### 검증
+- `GRADLE_USER_HOME=C:\Lura\.gradle-home`, `ANDROID_USER_HOME=C:\Lura\.android` 환경으로 `.\gradlew.bat testDebugUnitTest --no-daemon` 실행 결과 `BUILD SUCCESSFUL`.
+- 동일 환경으로 `.\gradlew.bat assembleDebug --no-daemon` 실행 결과 `BUILD SUCCESSFUL`.

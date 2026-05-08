@@ -7,7 +7,8 @@ interface AlarmRepository {
         sound: SoundItem,
         hour: Int,
         minute: Int,
-        weekdays: List<AlarmWeekday>
+        weekdays: List<AlarmWeekday>,
+        isEnabled: Boolean = true
     ): AlarmSchedule
     fun setAlarmEnabled(alarmId: String, isEnabled: Boolean): AlarmSchedule?
     fun updateAlarmSound(

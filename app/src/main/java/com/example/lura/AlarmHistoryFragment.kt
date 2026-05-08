@@ -6,14 +6,22 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.CompoundButton
 import android.widget.TextView
+import android.widget.Toast
 import androidx.appcompat.app.AlertDialog
 import androidx.fragment.app.Fragment
 import com.example.lura.data.AlarmRepository
 import com.example.lura.data.AlarmRepositoryProvider
 import com.example.lura.data.AlarmSchedule
+import com.example.lura.data.DisableAlarmAndCancelSleepSession
+import com.example.lura.data.DisableAlarmAndCancelSleepSessionProvider
 import com.example.lura.data.MockSoundRepository
+import com.example.lura.data.StartSleepSessionForAlarm
+import com.example.lura.data.StartSleepSessionForAlarmProvider
 import com.example.lura.data.SoundCategory
+import com.example.lura.data.UnselectedAlarmSound
 import com.example.lura.databinding.FragmentAlarmHistoryBinding
+import com.example.lura.playback.SleepPlaybackController
+import com.example.lura.playback.SleepPlaybackRequest
 import com.google.android.material.button.MaterialButton
 import com.google.android.material.switchmaterial.SwitchMaterial
 
@@ -23,6 +31,12 @@ class AlarmHistoryFragment : Fragment() {
     private val binding get() = _binding!!
     private val alarmRepository: AlarmRepository by lazy {
         AlarmRepositoryProvider.get(requireContext().applicationContext)
+    }
+    private val startSleepSessionForAlarm: StartSleepSessionForAlarm by lazy {
+        StartSleepSessionForAlarmProvider.get(requireContext().applicationContext)
+    }
+    private val disableAlarmAndCancelSleepSession: DisableAlarmAndCancelSleepSession by lazy {
+        DisableAlarmAndCancelSleepSessionProvider.get(requireContext().applicationContext)
     }
     private val soundRepository = MockSoundRepository
 
@@ -38,6 +52,7 @@ class AlarmHistoryFragment : Fragment() {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
         renderAlarms(alarmRepository.getAlarms())
+        showNoticeIfPresent()
     }
 
     private fun renderAlarms(alarms: List<AlarmSchedule>) {
@@ -72,17 +87,24 @@ class AlarmHistoryFragment : Fragment() {
         // View 재사용 여부와 무관하게 초기 checked 세팅이 저장소 갱신 이벤트로 오인되지 않게 분리한다.
         enabledSwitch.setOnCheckedChangeListener(null)
         enabledSwitch.isChecked = alarm.isEnabled
-        enabledSwitch.setOnCheckedChangeListener(createAlarmToggleListener(alarm.id))
+        enabledSwitch.setOnCheckedChangeListener(createAlarmToggleListener(alarm))
 
         itemView.findViewById<MaterialButton>(R.id.delete_alarm_button).setOnClickListener {
             showDeleteAlarmDialog(alarm)
         }
     }
 
-    private fun createAlarmToggleListener(alarmId: String): CompoundButton.OnCheckedChangeListener =
+    private fun createAlarmToggleListener(alarm: AlarmSchedule): CompoundButton.OnCheckedChangeListener =
         CompoundButton.OnCheckedChangeListener { _, isChecked ->
-            alarmRepository.setAlarmEnabled(alarmId, isChecked)
-            renderAlarms(alarmRepository.getAlarms())
+            if (isChecked) {
+                requestAlarmActivation(alarm)
+            } else {
+                val cancelledActivePlayback = disableAlarmAndCancelSleepSession.execute(alarm.id)
+                if (cancelledActivePlayback) {
+                    SleepPlaybackController.stop(requireContext())
+                }
+                renderAlarms(alarmRepository.getAlarms())
+            }
         }
 
     private fun getStatusText(isEnabled: Boolean): String =
@@ -111,6 +133,86 @@ class AlarmHistoryFragment : Fragment() {
         renderAlarms(alarmRepository.getAlarms())
     }
 
+    private fun requestAlarmActivation(alarm: AlarmSchedule) {
+        if (alarm.soundId == UnselectedAlarmSound.SOUND_ID) {
+            Toast.makeText(
+                requireContext(),
+                R.string.alarm_sound_required_to_enable,
+                Toast.LENGTH_SHORT
+            ).show()
+            renderAlarms(alarmRepository.getAlarms())
+            return
+        }
+
+        val hasAnotherEnabledAlarm = alarmRepository.getAlarms().any {
+            it.id != alarm.id && it.isEnabled
+        }
+        if (hasAnotherEnabledAlarm) {
+            showSwitchActiveAlarmDialog(alarm)
+        } else {
+            enableAlarmAndStartPlayback(alarm)
+        }
+    }
+
+    private fun enableAlarmAndStartPlayback(alarm: AlarmSchedule) {
+        if (alarm.soundId == UnselectedAlarmSound.SOUND_ID) {
+            Toast.makeText(
+                requireContext(),
+                R.string.alarm_sound_required_to_enable,
+                Toast.LENGTH_SHORT
+            ).show()
+            renderAlarms(alarmRepository.getAlarms())
+            return
+        }
+
+        val result = startSleepSessionForAlarm.execute(alarm.id)
+        if (result == null) {
+            Toast.makeText(
+                requireContext(),
+                R.string.alarm_sound_required_to_enable,
+                Toast.LENGTH_SHORT
+            ).show()
+            renderAlarms(alarmRepository.getAlarms())
+            return
+        }
+
+        SleepPlaybackController.start(
+            requireContext(),
+            SleepPlaybackRequest.from(
+                alarmSchedule = result.alarmSchedule,
+                sleepSession = result.sleepSession
+            )
+        )
+        Toast.makeText(
+            requireContext(),
+            R.string.sleep_playback_started_notice,
+            Toast.LENGTH_SHORT
+        ).show()
+        renderAlarms(alarmRepository.getAlarms())
+    }
+
+    private fun showSwitchActiveAlarmDialog(alarm: AlarmSchedule) {
+        AlertDialog.Builder(requireContext())
+            .setTitle(R.string.switch_active_alarm_dialog_title)
+            .setMessage(R.string.switch_active_alarm_dialog_message)
+            .setPositiveButton(R.string.switch_active_alarm_confirm) { _, _ ->
+                enableAlarmAndStartPlayback(alarm)
+            }
+            .setNegativeButton(R.string.switch_active_alarm_cancel) { _, _ ->
+                renderAlarms(alarmRepository.getAlarms())
+            }
+            .setOnCancelListener {
+                renderAlarms(alarmRepository.getAlarms())
+            }
+            .show()
+    }
+
+    private fun showNoticeIfPresent() {
+        val message = arguments?.getString(ARG_NOTICE_MESSAGE) ?: return
+        Toast.makeText(requireContext(), message, Toast.LENGTH_LONG).show()
+        arguments?.remove(ARG_NOTICE_MESSAGE)
+    }
+
     private fun showDeleteAlarmDialog(alarm: AlarmSchedule) {
         AlertDialog.Builder(requireContext())
             .setTitle(R.string.delete_alarm_dialog_title)
@@ -126,5 +228,9 @@ class AlarmHistoryFragment : Fragment() {
     override fun onDestroyView() {
         super.onDestroyView()
         _binding = null
+    }
+
+    companion object {
+        const val ARG_NOTICE_MESSAGE = "noticeMessage"
     }
 }

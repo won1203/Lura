@@ -35,6 +35,19 @@ interface SleepSessionDao {
 
     @Query(
         """
+        UPDATE sleep_sessions
+        SET status = :status
+        WHERE sessionId = :sessionId
+          AND status IN ('PLAYING', 'ALARMING')
+        """
+    )
+    fun updateActiveSessionStatus(
+        sessionId: String,
+        status: SleepSessionStatus
+    ): Int
+
+    @Query(
+        """
         SELECT * FROM sleep_sessions
         WHERE status IN ('PLAYING', 'ALARMING')
         ORDER BY startedAtEpochMillis DESC

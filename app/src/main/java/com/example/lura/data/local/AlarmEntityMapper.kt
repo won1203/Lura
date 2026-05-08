@@ -14,6 +14,7 @@ object AlarmEntityMapper {
         hour: Int,
         minute: Int,
         weekdays: List<AlarmWeekday>,
+        isEnabled: Boolean = true,
         createdAtEpochMillis: Long
     ): AlarmEntity =
         AlarmEntity(
@@ -27,7 +28,7 @@ object AlarmEntityMapper {
             hour = hour,
             minute = minute,
             weekdays = weekdays.sortedBy { it.sortOrder },
-            isEnabled = true,
+            isEnabled = isEnabled,
             createdAtEpochMillis = createdAtEpochMillis
         )
 

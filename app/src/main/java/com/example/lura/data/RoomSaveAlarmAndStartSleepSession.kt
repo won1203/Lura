@@ -48,6 +48,7 @@ class RoomSaveAlarmAndStartSleepSession(
                     targetAlarmAtEpochMillis = targetAlarmAtEpochMillis
                 )
 
+                database.alarmDao().disableEnabledAlarms()
                 database.alarmDao().upsertAlarm(alarmEntity)
                 // A single running sleep flow prevents playback, alarm scheduling, and recovery
                 // from competing over multiple active sessions after repeated save taps.

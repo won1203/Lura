@@ -15,13 +15,19 @@ import android.widget.NumberPicker
 import android.widget.TextView
 import android.widget.Toast
 import androidx.core.content.ContextCompat
+import androidx.core.os.bundleOf
 import androidx.fragment.app.Fragment
 import androidx.navigation.fragment.findNavController
+import com.example.lura.data.AlarmRepository
+import com.example.lura.data.AlarmRepositoryProvider
 import com.example.lura.data.AlarmWeekday
 import com.example.lura.data.MockSoundRepository
 import com.example.lura.data.SaveAlarmAndStartSleepSession
 import com.example.lura.data.SaveAlarmAndStartSleepSessionProvider
+import com.example.lura.data.UnselectedAlarmSound
 import com.example.lura.databinding.FragmentAlarmSetupBinding
+import com.example.lura.playback.SleepPlaybackController
+import com.example.lura.playback.SleepPlaybackRequest
 import kotlin.math.roundToInt
 
 class AlarmSetupFragment : Fragment() {
@@ -29,6 +35,9 @@ class AlarmSetupFragment : Fragment() {
     private var _binding: FragmentAlarmSetupBinding? = null
     private val binding get() = _binding!!
     private val soundRepository = MockSoundRepository
+    private val alarmRepository: AlarmRepository by lazy {
+        AlarmRepositoryProvider.get(requireContext().applicationContext)
+    }
     private val saveAlarmAndStartSleepSession: SaveAlarmAndStartSleepSession by lazy {
         SaveAlarmAndStartSleepSessionProvider.get(requireContext().applicationContext)
     }
@@ -78,14 +87,47 @@ class AlarmSetupFragment : Fragment() {
                 return@setOnClickListener
             }
 
-            saveAlarmAndStartSleepSession.execute(
+            if (category == null || recommendedSound == null) {
+                alarmRepository.saveAlarm(
+                    category = UnselectedAlarmSound.category,
+                    sound = UnselectedAlarmSound.sound,
+                    hour = binding.alarmTimePicker.hour,
+                    minute = binding.alarmTimePicker.minute,
+                    weekdays = repeatWeekdays,
+                    isEnabled = false
+                )
+                findNavController().navigate(
+                    R.id.action_alarmSetupFragment_to_alarmHistoryFragment,
+                    bundleOf(
+                        AlarmHistoryFragment.ARG_NOTICE_MESSAGE to
+                            getString(R.string.alarm_saved_without_sound_notice)
+                    )
+                )
+                return@setOnClickListener
+            }
+
+            val result = saveAlarmAndStartSleepSession.execute(
                 category = category,
                 sound = recommendedSound,
                 hour = binding.alarmTimePicker.hour,
                 minute = binding.alarmTimePicker.minute,
                 weekdays = repeatWeekdays
             )
-            findNavController().navigate(R.id.action_alarmSetupFragment_to_alarmHistoryFragment)
+            val playbackRequest = SleepPlaybackRequest.from(
+                alarmSchedule = result.alarmSchedule,
+                sleepSession = result.sleepSession
+            )
+            SleepPlaybackController.start(requireContext(), playbackRequest)
+            findNavController().navigate(
+                R.id.action_alarmSetupFragment_to_alarmHistoryFragment,
+                bundleOf(
+                    AlarmHistoryFragment.ARG_NOTICE_MESSAGE to
+                        getString(
+                            R.string.category_sleep_playback_started_notice,
+                            result.alarmSchedule.categoryName
+                        )
+                )
+            )
         }
     }
 

@@ -6,7 +6,6 @@
 ### 2. 목표 (Goal)
 **[현재 작업 내용 입력]**
 
-
 ### 3. 제한 사항 (Constraints)
 **핵심 준수 원칙 (Strict Rules):**
 - **소프트웨어 5대 원칙:** KISS, DRY, YAGNI 및 SOLID 원칙을 모든 코드 설계의 뼈대로 삼는다.

@@ -22,7 +22,8 @@ class RoomAlarmRepository(
         sound: SoundItem,
         hour: Int,
         minute: Int,
-        weekdays: List<AlarmWeekday>
+        weekdays: List<AlarmWeekday>,
+        isEnabled: Boolean
     ): AlarmSchedule =
         executeOnDisk {
             val entity = AlarmEntityMapper.createEntity(
@@ -31,9 +32,15 @@ class RoomAlarmRepository(
                 hour = hour,
                 minute = minute,
                 weekdays = weekdays,
+                isEnabled = isEnabled,
                 createdAtEpochMillis = System.currentTimeMillis()
             )
-            alarmDao.upsertAlarm(entity)
+            database.runInTransaction {
+                if (isEnabled) {
+                    alarmDao.disableEnabledAlarms()
+                }
+                alarmDao.upsertAlarm(entity)
+            }
             AlarmEntityMapper.toDomain(entity)
         }
 

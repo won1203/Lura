@@ -17,24 +17,30 @@ import android.widget.Toast
 import androidx.core.content.ContextCompat
 import androidx.core.os.bundleOf
 import androidx.fragment.app.Fragment
+import androidx.lifecycle.lifecycleScope
 import androidx.navigation.fragment.findNavController
 import com.example.lura.data.AlarmRepository
 import com.example.lura.data.AlarmRepositoryProvider
 import com.example.lura.data.AlarmWeekday
-import com.example.lura.data.MockSoundRepository
 import com.example.lura.data.SaveAlarmAndStartSleepSession
 import com.example.lura.data.SaveAlarmAndStartSleepSessionProvider
+import com.example.lura.data.SoundCategory
+import com.example.lura.data.SoundItem
+import com.example.lura.data.SoundRepositoryProvider
 import com.example.lura.data.UnselectedAlarmSound
 import com.example.lura.databinding.FragmentAlarmSetupBinding
 import com.example.lura.playback.SleepPlaybackController
 import com.example.lura.playback.SleepPlaybackRequest
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import kotlin.math.roundToInt
 
 class AlarmSetupFragment : Fragment() {
 
     private var _binding: FragmentAlarmSetupBinding? = null
     private val binding get() = _binding!!
-    private val soundRepository = MockSoundRepository
+    private val soundRepository = SoundRepositoryProvider.get()
     private val alarmRepository: AlarmRepository by lazy {
         AlarmRepositoryProvider.get(requireContext().applicationContext)
     }
@@ -44,6 +50,8 @@ class AlarmSetupFragment : Fragment() {
     private val weekdays = AlarmWeekday.values().sortedBy { it.sortOrder }
     private val selectedWeekdays = weekdays.toMutableSet()
     private val weekdayButtons = mutableMapOf<AlarmWeekday, TextView>()
+    private var selectedCategory: SoundCategory? = null
+    private var selectedRecommendedSound: SoundItem? = null
 
     override fun onCreateView(
         inflater: LayoutInflater,
@@ -58,13 +66,7 @@ class AlarmSetupFragment : Fragment() {
         super.onViewCreated(view, savedInstanceState)
 
         val categoryId = arguments?.getString(ARG_CATEGORY_ID)
-        val category = categoryId?.let(soundRepository::getCategory)
-        val recommendedSound = categoryId?.let(soundRepository::getRecommendedSound)
-
-        if (categoryId != null && (category == null || recommendedSound == null)) {
-            Toast.makeText(requireContext(), R.string.alarm_setup_load_failed, Toast.LENGTH_SHORT).show()
-            return
-        }
+        categoryId?.let(::loadSelectedSound)
 
         binding.alarmTimePicker.setIs24HourView(true)
         binding.alarmTimePicker.hour = DEFAULT_ALARM_HOUR
@@ -87,48 +89,99 @@ class AlarmSetupFragment : Fragment() {
                 return@setOnClickListener
             }
 
-            if (category == null || recommendedSound == null) {
+            viewLifecycleOwner.lifecycleScope.launch {
+                saveAlarm(categoryId, repeatWeekdays)
+            }
+        }
+    }
+
+    private fun loadSelectedSound(categoryId: String) {
+        viewLifecycleOwner.lifecycleScope.launch {
+            runCatching {
+                val category = soundRepository.getCategory(categoryId)
+                val recommendedSound = soundRepository.getRecommendedSound(categoryId)
+                category to recommendedSound
+            }.onSuccess { (category, recommendedSound) ->
+                selectedCategory = category
+                selectedRecommendedSound = recommendedSound
+                if (category == null || recommendedSound == null) {
+                    Toast.makeText(requireContext(), R.string.alarm_setup_load_failed, Toast.LENGTH_SHORT).show()
+                }
+            }.onFailure {
+                selectedCategory = null
+                selectedRecommendedSound = null
+                Toast.makeText(requireContext(), R.string.alarm_setup_load_failed, Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
+
+    private suspend fun saveAlarm(
+        categoryId: String?,
+        repeatWeekdays: List<AlarmWeekday>
+    ) {
+        val category = selectedCategory
+        val recommendedSound = selectedRecommendedSound
+        val hour = binding.alarmTimePicker.hour
+        val minute = binding.alarmTimePicker.minute
+
+        if (category == null || recommendedSound == null) {
+            if (categoryId != null) {
+                Toast.makeText(requireContext(), R.string.alarm_setup_load_failed, Toast.LENGTH_SHORT).show()
+                return
+            }
+
+            withContext(Dispatchers.IO) {
                 alarmRepository.saveAlarm(
                     category = UnselectedAlarmSound.category,
                     sound = UnselectedAlarmSound.sound,
-                    hour = binding.alarmTimePicker.hour,
-                    minute = binding.alarmTimePicker.minute,
+                    hour = hour,
+                    minute = minute,
                     weekdays = repeatWeekdays,
                     isEnabled = false
                 )
-                findNavController().navigate(
-                    R.id.action_alarmSetupFragment_to_alarmHistoryFragment,
-                    bundleOf(
-                        AlarmHistoryFragment.ARG_NOTICE_MESSAGE to
-                            getString(R.string.alarm_saved_without_sound_notice)
-                    )
-                )
-                return@setOnClickListener
             }
-
-            val result = saveAlarmAndStartSleepSession.execute(
-                category = category,
-                sound = recommendedSound,
-                hour = binding.alarmTimePicker.hour,
-                minute = binding.alarmTimePicker.minute,
-                weekdays = repeatWeekdays
-            )
-            val playbackRequest = SleepPlaybackRequest.from(
-                alarmSchedule = result.alarmSchedule,
-                sleepSession = result.sleepSession
-            )
-            SleepPlaybackController.start(requireContext(), playbackRequest)
             findNavController().navigate(
                 R.id.action_alarmSetupFragment_to_alarmHistoryFragment,
                 bundleOf(
                     AlarmHistoryFragment.ARG_NOTICE_MESSAGE to
-                        getString(
-                            R.string.category_sleep_playback_started_notice,
-                            result.alarmSchedule.categoryName
-                        )
+                        getString(R.string.alarm_saved_without_sound_notice)
                 )
             )
+            return
         }
+
+        val sourceUri = runCatching {
+            soundRepository.getPlaybackSourceUri(recommendedSound.id)
+        }.getOrElse {
+            Toast.makeText(requireContext(), R.string.alarm_setup_load_failed, Toast.LENGTH_SHORT).show()
+            return
+        }
+
+        val result = withContext(Dispatchers.IO) {
+            saveAlarmAndStartSleepSession.execute(
+                category = category,
+                sound = recommendedSound,
+                hour = hour,
+                minute = minute,
+                weekdays = repeatWeekdays
+            )
+        }
+        val playbackRequest = SleepPlaybackRequest.from(
+            alarmSchedule = result.alarmSchedule,
+            sleepSession = result.sleepSession,
+            sourceUri = sourceUri
+        )
+        SleepPlaybackController.start(requireContext(), playbackRequest)
+        findNavController().navigate(
+            R.id.action_alarmSetupFragment_to_alarmHistoryFragment,
+            bundleOf(
+                AlarmHistoryFragment.ARG_NOTICE_MESSAGE to
+                    getString(
+                        R.string.category_sleep_playback_started_notice,
+                        result.alarmSchedule.categoryName
+                )
+            )
+        )
     }
 
     private fun renderWeekdaySelector() {

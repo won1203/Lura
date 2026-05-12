@@ -1,7 +1,8 @@
 package com.example.lura.data
 
 interface SoundRepository {
-    fun getCategories(): List<SoundCategory>
-    fun getCategory(categoryId: String): SoundCategory?
-    fun getRecommendedSound(categoryId: String): SoundItem?
+    suspend fun getCategories(): List<SoundCategory>
+    suspend fun getCategory(categoryId: String): SoundCategory?
+    suspend fun getRecommendedSound(categoryId: String): SoundItem?
+    suspend fun getPlaybackSourceUri(soundId: String): String
 }

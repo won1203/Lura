@@ -7,16 +7,18 @@ import android.view.ViewGroup
 import android.widget.TextView
 import androidx.core.os.bundleOf
 import androidx.fragment.app.Fragment
+import androidx.lifecycle.lifecycleScope
 import androidx.navigation.fragment.findNavController
-import com.example.lura.data.MockSoundRepository
 import com.example.lura.data.SoundCategory
+import com.example.lura.data.SoundRepositoryProvider
 import com.example.lura.databinding.FragmentHomeBinding
+import kotlinx.coroutines.launch
 
 class HomeFragment : Fragment() {
 
     private var _binding: FragmentHomeBinding? = null
     private val binding get() = _binding!!
-    private val soundRepository = MockSoundRepository
+    private val soundRepository = SoundRepositoryProvider.get()
 
     override fun onCreateView(
         inflater: LayoutInflater,
@@ -29,7 +31,18 @@ class HomeFragment : Fragment() {
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
-        renderCategories(soundRepository.getCategories())
+        loadCategories()
+    }
+
+    private fun loadCategories() {
+        viewLifecycleOwner.lifecycleScope.launch {
+            runCatching {
+                soundRepository.getCategories()
+            }.onSuccess(::renderCategories)
+                .onFailure {
+                    binding.categoryList.removeAllViews()
+                }
+        }
     }
 
     private fun renderCategories(categories: List<SoundCategory>) {

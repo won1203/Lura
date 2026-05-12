@@ -1,5 +1,7 @@
 package com.example.lura.data
 
+import com.example.lura.playback.SleepSoundPlaybackCatalog
+
 object MockSoundRepository : SoundRepository {
     private val categories = listOf(
         SoundCategory(
@@ -72,11 +74,14 @@ object MockSoundRepository : SoundRepository {
         )
     )
 
-    override fun getCategories(): List<SoundCategory> = categories
+    override suspend fun getCategories(): List<SoundCategory> = categories
 
-    override fun getCategory(categoryId: String): SoundCategory? =
+    override suspend fun getCategory(categoryId: String): SoundCategory? =
         categories.firstOrNull { it.id == categoryId }
 
-    override fun getRecommendedSound(categoryId: String): SoundItem? =
+    override suspend fun getRecommendedSound(categoryId: String): SoundItem? =
         recommendedSounds.firstOrNull { it.categoryId == categoryId }
+
+    override suspend fun getPlaybackSourceUri(soundId: String): String =
+        SleepSoundPlaybackCatalog.sourceUriFor(soundId)
 }

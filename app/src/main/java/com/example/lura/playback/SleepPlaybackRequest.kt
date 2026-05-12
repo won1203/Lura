@@ -45,7 +45,11 @@ data class SleepPlaybackRequest(
         private const val KEY_TARGET_ALARM_AT_EPOCH_MILLIS = "sleepPlayback.targetAlarmAtEpochMillis"
         private const val KEY_SOURCE_URI = "sleepPlayback.sourceUri"
 
-        fun from(alarmSchedule: AlarmSchedule, sleepSession: SleepSession): SleepPlaybackRequest =
+        fun from(
+            alarmSchedule: AlarmSchedule,
+            sleepSession: SleepSession,
+            sourceUri: String = SleepSoundPlaybackCatalog.sourceUriFor(alarmSchedule.soundId)
+        ): SleepPlaybackRequest =
             SleepPlaybackRequest(
                 sessionId = sleepSession.sessionId,
                 alarmId = alarmSchedule.id,
@@ -55,7 +59,7 @@ data class SleepPlaybackRequest(
                 tags = alarmSchedule.soundTags,
                 durationMinutes = alarmSchedule.soundDurationMinutes,
                 targetAlarmAtEpochMillis = sleepSession.targetAlarmAtEpochMillis,
-                sourceUri = SleepSoundPlaybackCatalog.sourceUriFor(alarmSchedule.soundId)
+                sourceUri = sourceUri
             )
 
         fun fromIntent(intent: Intent?): SleepPlaybackRequest? =

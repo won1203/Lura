@@ -9,21 +9,25 @@ import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AlertDialog
 import androidx.fragment.app.Fragment
+import androidx.lifecycle.lifecycleScope
 import com.example.lura.data.AlarmRepository
 import com.example.lura.data.AlarmRepositoryProvider
 import com.example.lura.data.AlarmSchedule
 import com.example.lura.data.DisableAlarmAndCancelSleepSession
 import com.example.lura.data.DisableAlarmAndCancelSleepSessionProvider
-import com.example.lura.data.MockSoundRepository
 import com.example.lura.data.StartSleepSessionForAlarm
 import com.example.lura.data.StartSleepSessionForAlarmProvider
 import com.example.lura.data.SoundCategory
+import com.example.lura.data.SoundRepositoryProvider
 import com.example.lura.data.UnselectedAlarmSound
 import com.example.lura.databinding.FragmentAlarmHistoryBinding
 import com.example.lura.playback.SleepPlaybackController
 import com.example.lura.playback.SleepPlaybackRequest
 import com.google.android.material.button.MaterialButton
 import com.google.android.material.switchmaterial.SwitchMaterial
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 class AlarmHistoryFragment : Fragment() {
 
@@ -38,7 +42,7 @@ class AlarmHistoryFragment : Fragment() {
     private val disableAlarmAndCancelSleepSession: DisableAlarmAndCancelSleepSession by lazy {
         DisableAlarmAndCancelSleepSessionProvider.get(requireContext().applicationContext)
     }
-    private val soundRepository = MockSoundRepository
+    private val soundRepository = SoundRepositoryProvider.get()
 
     override fun onCreateView(
         inflater: LayoutInflater,
@@ -111,26 +115,42 @@ class AlarmHistoryFragment : Fragment() {
         getString(if (isEnabled) R.string.alarm_status_on else R.string.alarm_status_off)
 
     private fun showCategorySelectionDialog(alarm: AlarmSchedule) {
-        val categories = soundRepository.getCategories()
-        val categoryNames = categories.map { it.name }.toTypedArray()
+        viewLifecycleOwner.lifecycleScope.launch {
+            runCatching {
+                soundRepository.getCategories()
+            }.onSuccess { categories ->
+                val categoryNames = categories.map { it.name }.toTypedArray()
 
-        AlertDialog.Builder(requireContext())
-            .setTitle(R.string.category_selection_dialog_title)
-            .setItems(categoryNames) { _, which ->
-                updateAlarmCategory(alarm.id, categories[which])
+                AlertDialog.Builder(requireContext())
+                    .setTitle(R.string.category_selection_dialog_title)
+                    .setItems(categoryNames) { _, which ->
+                        updateAlarmCategory(alarm.id, categories[which])
+                    }
+                    .show()
+            }.onFailure {
+                Toast.makeText(requireContext(), R.string.alarm_setup_load_failed, Toast.LENGTH_SHORT).show()
             }
-            .show()
+        }
     }
 
     private fun updateAlarmCategory(alarmId: String, category: SoundCategory) {
-        val recommendedSound = soundRepository.getRecommendedSound(category.id)
-            ?: return
-        alarmRepository.updateAlarmSound(
-            alarmId = alarmId,
-            category = category,
-            sound = recommendedSound
-        )
-        renderAlarms(alarmRepository.getAlarms())
+        viewLifecycleOwner.lifecycleScope.launch {
+            val recommendedSound = runCatching {
+                soundRepository.getRecommendedSound(category.id)
+            }.getOrElse {
+                Toast.makeText(requireContext(), R.string.alarm_setup_load_failed, Toast.LENGTH_SHORT).show()
+                return@launch
+            } ?: return@launch
+
+            withContext(Dispatchers.IO) {
+                alarmRepository.updateAlarmSound(
+                    alarmId = alarmId,
+                    category = category,
+                    sound = recommendedSound
+                )
+                alarmRepository.getAlarms()
+            }.also(::renderAlarms)
+        }
     }
 
     private fun requestAlarmActivation(alarm: AlarmSchedule) {
@@ -165,30 +185,43 @@ class AlarmHistoryFragment : Fragment() {
             return
         }
 
-        val result = startSleepSessionForAlarm.execute(alarm.id)
-        if (result == null) {
+        viewLifecycleOwner.lifecycleScope.launch {
+            val sourceUri = runCatching {
+                soundRepository.getPlaybackSourceUri(alarm.soundId)
+            }.getOrElse {
+                Toast.makeText(requireContext(), R.string.alarm_setup_load_failed, Toast.LENGTH_SHORT).show()
+                renderAlarms(alarmRepository.getAlarms())
+                return@launch
+            }
+
+            val result = withContext(Dispatchers.IO) {
+                startSleepSessionForAlarm.execute(alarm.id)
+            }
+            if (result == null) {
+                Toast.makeText(
+                    requireContext(),
+                    R.string.alarm_sound_required_to_enable,
+                    Toast.LENGTH_SHORT
+                ).show()
+                renderAlarms(alarmRepository.getAlarms())
+                return@launch
+            }
+
+            SleepPlaybackController.start(
+                requireContext(),
+                SleepPlaybackRequest.from(
+                    alarmSchedule = result.alarmSchedule,
+                    sleepSession = result.sleepSession,
+                    sourceUri = sourceUri
+                )
+            )
             Toast.makeText(
                 requireContext(),
-                R.string.alarm_sound_required_to_enable,
+                R.string.sleep_playback_started_notice,
                 Toast.LENGTH_SHORT
             ).show()
             renderAlarms(alarmRepository.getAlarms())
-            return
         }
-
-        SleepPlaybackController.start(
-            requireContext(),
-            SleepPlaybackRequest.from(
-                alarmSchedule = result.alarmSchedule,
-                sleepSession = result.sleepSession
-            )
-        )
-        Toast.makeText(
-            requireContext(),
-            R.string.sleep_playback_started_notice,
-            Toast.LENGTH_SHORT
-        ).show()
-        renderAlarms(alarmRepository.getAlarms())
     }
 
     private fun showSwitchActiveAlarmDialog(alarm: AlarmSchedule) {

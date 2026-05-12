@@ -1,5 +1,33 @@
 # Worklog
 
+## Android Backend Sound Repository Integration - 2026-05-12
+
+### 변경 사항
+- Android 앱의 `SoundRepository` 계약을 네트워크 호출에 맞게 `suspend` 함수 기반으로 변경했다.
+- `MockSoundRepository`를 Fragment에서 직접 참조하던 구조를 제거하고 `SoundRepositoryProvider`를 통해 구현체를 주입하도록 변경했다.
+- `Retrofit`, `OkHttp`, `Gson Converter`, `lifecycle-runtime-ktx` 의존성을 추가하고 `BuildConfig.LURA_API_BASE_URL` 기본값을 에뮬레이터용 `http://10.0.2.2:8080/`로 설정했다.
+- `LuraBackendApi`, DTO, `BackendSoundRepository`를 추가해 Spring Boot API의 `/api/v1/categories`, `/api/v1/sounds/category/{categoryId}`, `/api/v1/sounds/{soundId}/play`를 Android 데이터 공급원으로 연결했다.
+- `HomeFragment`, `AlarmSetupFragment`, `AlarmHistoryFragment`에서 카테고리/음원 조회와 재생 URL 조회를 `viewLifecycleOwner.lifecycleScope`에서 수행하도록 변경했다.
+- 재생 시작 직전에 `/play` API를 호출해 `SleepPlaybackRequest`에 source URI를 주입하도록 확장했다.
+- 현재 백엔드의 `example.com/mock` 재생 URL은 실제 재생 가능한 S3 URL이 아니므로, `/play` 호출 검증은 유지하면서 앱 재생 파이프라인은 기존 로컬 테스트 음원 URI로 fallback하도록 처리했다.
+- 로컬 HTTP 백엔드 호출을 위해 `INTERNET` 권한과 `network_security_config.xml`을 추가했다.
+
+### 설계 결정 이유
+- Fragment가 Mock 구현체를 직접 아는 구조는 백엔드 연동 시 변경 범위가 커지므로 Provider를 통해 구현체 교체 지점을 단일화했다.
+- Retrofit 네트워크 호출은 메인 스레드에서 직접 실행할 수 없기 때문에 Repository 계약을 `suspend` 기반으로 바꾸고 UI 계층에서는 lifecycle-aware coroutine으로 호출했다.
+- `/play` URL은 향후 S3 Presigned URL로 바뀌면 만료 시간이 생기므로, 음원 목록 조회 시점이 아니라 실제 재생 직전에 조회하도록 했다.
+- Retrofit 3/OkHttp 5 조합은 현재 프로젝트의 Kotlin 2.0.21과 메타데이터 버전이 맞지 않아 Retrofit 2.11.0, OkHttp 4.12.0 조합으로 고정했다.
+
+### 이슈 및 해결
+- 최초 빌드에서 Gradle 기본 경로의 네트워크 접근이 제한되어 실패했다. 기존 프로젝트 로컬 Gradle/Android 홈을 지정해 재시도했다.
+- `androidx.lifecycle:lifecycle-runtime-ktx:2.9.6`은 Maven에서 해석되지 않아 프로젝트 의존성 트리와 호환되는 `2.9.0`으로 조정했다.
+- Retrofit 3/OkHttp 5가 Kotlin 2.2 메타데이터를 끌고 와 KSP 컴파일이 실패했다. Kotlin 2.0.21과 호환되는 Retrofit 2.11.0/OkHttp 4.12.0으로 조정해 해결했다.
+
+### 검증
+- `GRADLE_USER_HOME=C:\Lura\.gradle-home`, `ANDROID_USER_HOME=C:\Lura\.android` 환경에서 `.\gradlew.bat assembleDebug --no-daemon` 실행 결과 `BUILD SUCCESSFUL`.
+- 동일 환경에서 `.\gradlew.bat testDebugUnitTest --no-daemon` 실행 결과 `BUILD SUCCESSFUL`.
+- Kotlin daemon 권한 경고는 발생했지만 Gradle이 fallback 컴파일을 수행해 테스트와 빌드는 정상 완료됐다.
+
 ## Alarm Delete Flow - 2026-05-08
 
 ### 변경 사항

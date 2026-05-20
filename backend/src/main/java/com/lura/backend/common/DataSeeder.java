@@ -27,19 +27,19 @@ public class DataSeeder {
                     "차분함"
             );
 
-            SoundCategory wave = findOrCreateCategory(
+            SoundCategory water = findOrCreateCategory(
                     categoryRepository,
-                    "wave",
-                    "파도",
-                    "느린 호흡을 돕는 해변의 물결",
+                    "water",
+                    "물소리",
+                    "흐르는 물과 잔잔한 자연의 소리",
                     "안정감"
             );
 
-            SoundCategory forest = findOrCreateCategory(
+            SoundCategory wind = findOrCreateCategory(
                     categoryRepository,
-                    "forest",
-                    "숲",
-                    "깊은 숲의 바람과 잎사귀 소리",
+                    "wind",
+                    "바람소리",
+                    "부드럽게 스치는 바람 소리",
                     "이완"
             );
 
@@ -54,59 +54,59 @@ public class DataSeeder {
             SoundCategory firewood = findOrCreateCategory(
                     categoryRepository,
                     "firewood",
-                    "장작 소리",
-                    "따뜻하게 타오르는 벽난로의 잔잔한 소리",
+                    "장작소리",
+                    "따뜻하게 타오르는 장작의 잔잔한 소리",
                     "포근함"
             );
 
-            createSoundIfMissing(
+            createRandomSoundSlotIfMissing(
                     soundRepository,
-                    "rain-window-night",
+                    "random-rain",
                     rain,
-                    "창문 너머 밤비",
-                    List.of("수면", "잔잔함", "비"),
-                    45,
-                    "https://example.com/mock/rain-window-night.mp3"
-            );
-
-            createSoundIfMissing(
-                    soundRepository,
-                    "slow-coast-wave",
-                    wave,
-                    "느린 해안 파도",
-                    List.of("호흡", "파도", "휴식"),
+                    "랜덤 빗소리",
+                    List.of("수면", "비", "잔잔함"),
                     60,
-                    "https://example.com/mock/slow-coast-wave.mp3"
+                    "sounds/rain/"
             );
 
-            createSoundIfMissing(
+            createRandomSoundSlotIfMissing(
                     soundRepository,
-                    "deep-forest-wind",
-                    forest,
-                    "깊은 숲의 바람",
-                    List.of("숲", "바람", "이완"),
-                    50,
-                    "https://example.com/mock/deep-forest-wind.mp3"
+                    "random-water",
+                    water,
+                    "랜덤 물소리",
+                    List.of("수면", "물", "안정감"),
+                    60,
+                    "sounds/water/"
             );
 
-            createSoundIfMissing(
+            createRandomSoundSlotIfMissing(
                     soundRepository,
-                    "soft-white-noise",
+                    "random-wind",
+                    wind,
+                    "랜덤 바람소리",
+                    List.of("수면", "바람", "이완"),
+                    60,
+                    "sounds/wind/"
+            );
+
+            createRandomSoundSlotIfMissing(
+                    soundRepository,
+                    "random-white-noise",
                     whiteNoise,
-                    "부드러운 백색소음",
-                    List.of("마스킹", "집중", "수면"),
-                    90,
-                    "https://example.com/mock/soft-white-noise.mp3"
+                    "랜덤 백색소음",
+                    List.of("수면", "마스킹", "집중"),
+                    60,
+                    "sounds/white_noise/"
             );
 
-            createSoundIfMissing(
+            createRandomSoundSlotIfMissing(
                     soundRepository,
-                    "warm-firewood-night",
+                    "random-firewood",
                     firewood,
-                    "따뜻한 장작불",
-                    List.of("장작", "벽난로", "포근함"),
-                    70,
-                    "https://example.com/mock/warm-firewood-night.mp3"
+                    "랜덤 장작소리",
+                    List.of("수면", "장작", "포근함"),
+                    60,
+                    "sounds/firewood/"
             );
         };
     }
@@ -124,14 +124,14 @@ public class DataSeeder {
                 ));
     }
 
-    private void createSoundIfMissing(
+    private void createRandomSoundSlotIfMissing(
             SoundRepository soundRepository,
             String id,
             SoundCategory category,
             String title,
             List<String> tags,
             int durationMinutes,
-            String playUrl
+            String s3Prefix
     ) {
         if (soundRepository.existsById(id)) {
             return;
@@ -143,7 +143,7 @@ public class DataSeeder {
                 title,
                 tags,
                 durationMinutes,
-                playUrl
+                s3Prefix
         ));
     }
 }

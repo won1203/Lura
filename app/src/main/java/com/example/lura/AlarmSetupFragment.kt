@@ -19,9 +19,12 @@ import androidx.core.os.bundleOf
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.lifecycleScope
 import androidx.navigation.fragment.findNavController
+import com.example.lura.alarm.AlarmScheduler
 import com.example.lura.data.AlarmRepository
 import com.example.lura.data.AlarmRepositoryProvider
 import com.example.lura.data.AlarmWeekday
+import com.example.lura.data.DisableAlarmAndCancelSleepSession
+import com.example.lura.data.DisableAlarmAndCancelSleepSessionProvider
 import com.example.lura.data.SaveAlarmAndStartSleepSession
 import com.example.lura.data.SaveAlarmAndStartSleepSessionProvider
 import com.example.lura.data.SoundCategory
@@ -46,6 +49,9 @@ class AlarmSetupFragment : Fragment() {
     }
     private val saveAlarmAndStartSleepSession: SaveAlarmAndStartSleepSession by lazy {
         SaveAlarmAndStartSleepSessionProvider.get(requireContext().applicationContext)
+    }
+    private val disableAlarmAndCancelSleepSession: DisableAlarmAndCancelSleepSession by lazy {
+        DisableAlarmAndCancelSleepSessionProvider.get(requireContext().applicationContext)
     }
     private val weekdays = AlarmWeekday.values().sortedBy { it.sortOrder }
     private val selectedWeekdays = weekdays.toMutableSet()
@@ -150,26 +156,36 @@ class AlarmSetupFragment : Fragment() {
             return
         }
 
-        val sourceUri = runCatching {
-            soundRepository.getPlaybackSourceUri(recommendedSound.id)
+        val playbackSource = runCatching {
+            soundRepository.getPlaybackSource(recommendedSound.id)
         }.getOrElse {
             Toast.makeText(requireContext(), R.string.alarm_setup_load_failed, Toast.LENGTH_SHORT).show()
             return
         }
+        val fixedSound = recommendedSound.copy(objectKey = playbackSource.objectKey)
 
         val result = withContext(Dispatchers.IO) {
             saveAlarmAndStartSleepSession.execute(
                 category = category,
-                sound = recommendedSound,
+                sound = fixedSound,
                 hour = hour,
                 minute = minute,
                 weekdays = repeatWeekdays
             )
         }
+        AlarmScheduler.cancelAll(requireContext(), alarmRepository.getAlarms())
+        val scheduled = AlarmScheduler.schedule(requireContext(), result.alarmSchedule, result.sleepSession)
+        if (!scheduled) {
+            withContext(Dispatchers.IO) {
+                disableAlarmAndCancelSleepSession.execute(result.alarmSchedule.id)
+            }
+            Toast.makeText(requireContext(), R.string.exact_alarm_schedule_failed, Toast.LENGTH_LONG).show()
+            return
+        }
         val playbackRequest = SleepPlaybackRequest.from(
             alarmSchedule = result.alarmSchedule,
             sleepSession = result.sleepSession,
-            sourceUri = sourceUri
+            sourceUri = playbackSource.sourceUri
         )
         SleepPlaybackController.start(requireContext(), playbackRequest)
         findNavController().navigate(

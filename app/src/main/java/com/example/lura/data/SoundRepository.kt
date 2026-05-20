@@ -4,5 +4,5 @@ interface SoundRepository {
     suspend fun getCategories(): List<SoundCategory>
     suspend fun getCategory(categoryId: String): SoundCategory?
     suspend fun getRecommendedSound(categoryId: String): SoundItem?
-    suspend fun getPlaybackSourceUri(soundId: String): String
+    suspend fun getPlaybackSource(soundId: String, objectKey: String? = null): SoundPlaybackSource
 }

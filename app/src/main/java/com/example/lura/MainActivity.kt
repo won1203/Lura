@@ -1,14 +1,20 @@
 package com.example.lura
 
+import android.Manifest
+import android.content.pm.PackageManager
+import android.os.Build
 import android.os.Bundle
 import android.view.MenuItem
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.app.ActivityCompat
+import androidx.core.content.ContextCompat
 import androidx.navigation.NavController
 import androidx.navigation.NavOptions
 import androidx.navigation.findNavController
 import androidx.navigation.ui.AppBarConfiguration
 import androidx.navigation.ui.navigateUp
 import androidx.navigation.ui.setupActionBarWithNavController
+import com.example.lura.alarm.AlarmAppVisibility
 import com.example.lura.databinding.ActivityMainBinding
 import com.google.android.material.bottomnavigation.BottomNavigationView
 
@@ -35,6 +41,17 @@ class MainActivity : AppCompatActivity() {
         )
         setupActionBarWithNavController(navController, appBarConfiguration)
         setupBottomNavigation(navController)
+        requestNotificationPermissionIfNeeded()
+    }
+
+    override fun onStart() {
+        super.onStart()
+        AlarmAppVisibility.onActivityStarted()
+    }
+
+    override fun onStop() {
+        AlarmAppVisibility.onActivityStopped()
+        super.onStop()
     }
 
     override fun onSupportNavigateUp(): Boolean {
@@ -88,4 +105,23 @@ class MainActivity : AppCompatActivity() {
             .setLaunchSingleTop(true)
             .setPopUpTo(R.id.homeFragment, false)
             .build()
+
+    private fun requestNotificationPermissionIfNeeded() {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) return
+
+        val permission = Manifest.permission.POST_NOTIFICATIONS
+        if (ContextCompat.checkSelfPermission(this, permission) == PackageManager.PERMISSION_GRANTED) {
+            return
+        }
+
+        ActivityCompat.requestPermissions(
+            this,
+            arrayOf(permission),
+            POST_NOTIFICATIONS_REQUEST_CODE
+        )
+    }
+
+    companion object {
+        private const val POST_NOTIFICATIONS_REQUEST_CODE = 4101
+    }
 }

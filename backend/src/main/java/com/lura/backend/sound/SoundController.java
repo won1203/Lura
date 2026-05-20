@@ -2,6 +2,7 @@ package com.lura.backend.sound;
 
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -27,8 +28,16 @@ public class SoundController {
         return soundService.getSoundsByCategory(categoryId);
     }
 
+    @GetMapping("/category/{categoryId}/play/random")
+    public SoundPlayResponse getRandomPlayUrlByCategory(@PathVariable String categoryId) {
+        return soundService.getRandomPlayUrlByCategory(categoryId);
+    }
+
     @GetMapping("/{soundId}/play")
-    public SoundPlayResponse getPlayUrl(@PathVariable String soundId) {
-        return soundService.getPlayUrl(soundId);
+    public SoundPlayResponse getPlayUrl(
+            @PathVariable String soundId,
+            @RequestParam(required = false) String objectKey
+    ) {
+        return soundService.getPlayUrl(soundId, objectKey);
     }
 }

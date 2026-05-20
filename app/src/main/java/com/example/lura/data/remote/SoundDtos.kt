@@ -38,5 +38,7 @@ data class SoundResponseDto(
 
 data class SoundPlayResponseDto(
     val soundId: String,
+    val categoryId: String,
+    val objectKey: String,
     val playUrl: String
 )

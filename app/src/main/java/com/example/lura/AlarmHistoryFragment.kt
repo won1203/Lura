@@ -10,6 +10,7 @@ import android.widget.Toast
 import androidx.appcompat.app.AlertDialog
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.lifecycleScope
+import com.example.lura.alarm.AlarmScheduler
 import com.example.lura.data.AlarmRepository
 import com.example.lura.data.AlarmRepositoryProvider
 import com.example.lura.data.AlarmSchedule
@@ -103,6 +104,7 @@ class AlarmHistoryFragment : Fragment() {
             if (isChecked) {
                 requestAlarmActivation(alarm)
             } else {
+                AlarmScheduler.cancel(requireContext(), alarm.id)
                 val cancelledActivePlayback = disableAlarmAndCancelSleepSession.execute(alarm.id)
                 if (cancelledActivePlayback) {
                     SleepPlaybackController.stop(requireContext())
@@ -141,12 +143,19 @@ class AlarmHistoryFragment : Fragment() {
                 Toast.makeText(requireContext(), R.string.alarm_setup_load_failed, Toast.LENGTH_SHORT).show()
                 return@launch
             } ?: return@launch
+            val playbackSource = runCatching {
+                soundRepository.getPlaybackSource(recommendedSound.id)
+            }.getOrElse {
+                Toast.makeText(requireContext(), R.string.alarm_setup_load_failed, Toast.LENGTH_SHORT).show()
+                return@launch
+            }
+            val fixedSound = recommendedSound.copy(objectKey = playbackSource.objectKey)
 
             withContext(Dispatchers.IO) {
                 alarmRepository.updateAlarmSound(
                     alarmId = alarmId,
                     category = category,
-                    sound = recommendedSound
+                    sound = fixedSound
                 )
                 alarmRepository.getAlarms()
             }.also(::renderAlarms)
@@ -186,8 +195,11 @@ class AlarmHistoryFragment : Fragment() {
         }
 
         viewLifecycleOwner.lifecycleScope.launch {
-            val sourceUri = runCatching {
-                soundRepository.getPlaybackSourceUri(alarm.soundId)
+            val playbackSource = runCatching {
+                soundRepository.getPlaybackSource(
+                    soundId = alarm.soundId,
+                    objectKey = alarm.soundObjectKey.ifBlank { null }
+                )
             }.getOrElse {
                 Toast.makeText(requireContext(), R.string.alarm_setup_load_failed, Toast.LENGTH_SHORT).show()
                 renderAlarms(alarmRepository.getAlarms())
@@ -207,12 +219,28 @@ class AlarmHistoryFragment : Fragment() {
                 return@launch
             }
 
+            AlarmScheduler.cancelAll(requireContext(), alarmRepository.getAlarms())
+            val scheduled = AlarmScheduler.schedule(requireContext(), result.alarmSchedule, result.sleepSession)
+            if (!scheduled) {
+                withContext(Dispatchers.IO) {
+                    disableAlarmAndCancelSleepSession.execute(result.alarmSchedule.id)
+                }
+                Toast.makeText(requireContext(), R.string.exact_alarm_schedule_failed, Toast.LENGTH_LONG).show()
+                renderAlarms(alarmRepository.getAlarms())
+                return@launch
+            }
+            if (alarm.soundObjectKey.isBlank() && playbackSource.objectKey.isNotBlank()) {
+                withContext(Dispatchers.IO) {
+                    alarmRepository.updateAlarmSoundObjectKey(alarm.id, playbackSource.objectKey)
+                }
+            }
+
             SleepPlaybackController.start(
                 requireContext(),
                 SleepPlaybackRequest.from(
                     alarmSchedule = result.alarmSchedule,
                     sleepSession = result.sleepSession,
-                    sourceUri = sourceUri
+                    sourceUri = playbackSource.sourceUri
                 )
             )
             Toast.makeText(
@@ -251,7 +279,11 @@ class AlarmHistoryFragment : Fragment() {
             .setTitle(R.string.delete_alarm_dialog_title)
             .setMessage(R.string.delete_alarm_dialog_message)
             .setPositiveButton(R.string.delete_alarm_confirm) { _, _ ->
-                alarmRepository.deleteAlarm(alarm.id)
+                AlarmScheduler.cancel(requireContext(), alarm.id)
+                val deleteResult = alarmRepository.deleteAlarm(alarm.id)
+                if (alarm.isEnabled || deleteResult.cancelledActivePlayback) {
+                    SleepPlaybackController.stop(requireContext())
+                }
                 renderAlarms(alarmRepository.getAlarms())
             }
             .setNegativeButton(R.string.delete_alarm_cancel, null)

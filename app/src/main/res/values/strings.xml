@@ -57,4 +57,15 @@
     <string name="player_play">재생</string>
     <string name="player_pause">일시정지</string>
     <string name="player_stop">정지</string>
+    <string name="sleep_playback_notification_channel_name">수면 음원 재생</string>
+    <string name="sleep_playback_notification_channel_description">알람 시간까지 수면 음원 재생을 유지합니다.</string>
+    <string name="alarm_ringing_channel_name">알람 울림</string>
+    <string name="alarm_ringing_channel_description">설정한 시각에 알람음을 재생합니다.</string>
+    <string name="alarm_ringing_notification_title">알람이 울리는 중</string>
+    <string name="alarm_ringing_default_title">Lura 알람</string>
+    <string name="alarm_ringing_stop">알람 끄기</string>
+    <string name="exact_alarm_schedule_failed">정확한 알람 예약 권한이 없어 알람을 활성화하지 못했습니다.</string>
+    <string name="alarm_ringing_screen_header">ALARM</string>
+    <string name="alarm_ringing_screen_message">설정한 알람 시간이 되었습니다.</string>
+    <string name="alarm_ringing_dismiss">알람 끄기</string>
 </resources>

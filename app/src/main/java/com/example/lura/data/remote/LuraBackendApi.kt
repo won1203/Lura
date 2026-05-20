@@ -2,6 +2,7 @@ package com.example.lura.data.remote
 
 import retrofit2.http.GET
 import retrofit2.http.Path
+import retrofit2.http.Query
 
 interface LuraBackendApi {
     @GET("api/v1/categories")
@@ -17,6 +18,7 @@ interface LuraBackendApi {
 
     @GET("api/v1/sounds/{soundId}/play")
     suspend fun getSoundPlayUrl(
-        @Path("soundId") soundId: String
+        @Path("soundId") soundId: String,
+        @Query("objectKey") objectKey: String? = null
     ): SoundPlayResponseDto
 }

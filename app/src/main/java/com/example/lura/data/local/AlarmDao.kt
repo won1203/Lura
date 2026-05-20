@@ -30,7 +30,8 @@ interface AlarmDao {
             soundId = :soundId,
             soundTitle = :soundTitle,
             soundTags = :soundTags,
-            soundDurationMinutes = :soundDurationMinutes
+            soundDurationMinutes = :soundDurationMinutes,
+            soundObjectKey = :soundObjectKey
         WHERE id = :alarmId
         """
     )
@@ -41,8 +42,12 @@ interface AlarmDao {
         soundId: String,
         soundTitle: String,
         soundTags: String,
-        soundDurationMinutes: Int
+        soundDurationMinutes: Int,
+        soundObjectKey: String
     ): Int
+
+    @Query("UPDATE alarms SET soundObjectKey = :soundObjectKey WHERE id = :alarmId")
+    fun updateAlarmSoundObjectKey(alarmId: String, soundObjectKey: String): Int
 
     @Query("DELETE FROM alarms WHERE id = :alarmId")
     fun deleteAlarm(alarmId: String): Int

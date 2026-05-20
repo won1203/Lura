@@ -1,5 +1,31 @@
 # Worklog
 
+## Backend S3 Random Playback Selection - 2026-05-13
+
+### 변경 사항
+- 백엔드 음원 재생 방식을 DB에 개별 S3 파일을 모두 저장하는 방식이 아니라, 카테고리별 S3 prefix에서 실제 음원 객체를 랜덤 선택하는 방식으로 변경했다.
+- `Sound` 엔티티의 S3 저장 위치를 `s3ObjectKey`에서 `s3Prefix`로 변경해 `sounds/rain/`, `sounds/water/` 같은 카테고리 폴더를 가리키도록 했다.
+- `S3RandomSoundSelector`를 추가해 S3 `ListObjectsV2` paginator로 prefix 하위 객체를 조회하고, 지원 오디오 확장자만 필터링한 뒤 하나를 랜덤 선택하도록 했다.
+- `S3PresignerConfig`에 `S3Client` Bean을 추가해 Presigned URL 발급과 객체 목록 조회 책임을 분리했다.
+- `/api/v1/sounds/{soundId}/play`는 저장된 prefix에서 랜덤 객체를 선택한 뒤 해당 object key로 Presigned URL을 발급하도록 변경했다.
+- `/api/v1/sounds/category/{categoryId}/play/random` 엔드포인트를 추가해 카테고리 기준 랜덤 재생 URL을 직접 요청할 수 있게 했다.
+- `DataSeeder`를 S3 카테고리 구조에 맞춰 `rain`, `water`, `wind`, `white_noise`, `firewood`와 `random-*` 가상 음원 슬롯으로 재구성했다.
+- 테스트 컨텍스트가 로컬 MySQL/AWS 자격증명에 의존하지 않도록 H2 테스트 런타임과 `src/test/resources/application.yml`을 추가했다.
+
+### 설계 결정 이유
+- 사용자가 기대한 것은 특정 파일을 고정 재생하는 것이 아니라, 선택한 카테고리 안의 S3 음원 중 하나를 랜덤 제공하는 흐름이므로 DB에 모든 파일을 등록하는 설계는 과하다.
+- DB에는 앱 화면과 알람 저장에 필요한 카테고리/랜덤 재생 슬롯만 저장하고, 실제 파일 목록의 원천은 S3 prefix로 두는 편이 업로드/삭제/추가 작업에 유연하다.
+- S3 버킷은 private을 유지하고, 앱은 백엔드가 발급한 Presigned URL만 사용하므로 AWS 키와 버킷 권한이 Android 앱에 노출되지 않는다.
+- 기존 Android 앱이 `soundId` 기반 `/play` API를 이미 호출하고 있으므로 `random-rain` 같은 가상 sound id를 유지해 Android 변경을 최소화했다.
+
+### 이슈 및 해결
+- 기존 개발 DB에는 `play_url` 또는 `s3_object_key` 컬럼과 `wave`, `forest` 테스트 카테고리가 남아 있을 수 있다. `ddl-auto: update`는 컬럼 rename/drop을 처리하지 않으므로 개발 DB의 `sound_tags`, `sounds`, `categories` 테이블을 삭제 후 재생성해야 한다.
+- 테스트 실행 시 실제 MySQL 설정 없이 JPA 컨텍스트가 로드되며 실패했다. 테스트 전용 H2 설정을 추가해 외부 DB와 AWS 환경변수 없이 컨텍스트가 뜨도록 했다.
+
+### 검증
+- `C:\Lura\backend`에서 `.\gradlew.bat test --no-daemon` 실행 결과 `BUILD SUCCESSFUL`.
+- Java 컴파일, Spring Boot 테스트 컨텍스트 로딩, H2 기반 JPA 초기화가 정상 완료됐다.
+
 ## Android Backend Sound Repository Integration - 2026-05-12
 
 ### 변경 사항
@@ -759,3 +785,181 @@
 ### 검증
 - `GRADLE_USER_HOME=C:\Lura\.gradle-home`, `ANDROID_USER_HOME=C:\Lura\.android` 환경으로 `.\gradlew.bat testDebugUnitTest --no-daemon` 실행 결과 `BUILD SUCCESSFUL`.
 - 동일 환경으로 `.\gradlew.bat assembleDebug --no-daemon` 실행 결과 `BUILD SUCCESSFUL`.
+
+## Android Sleep Playback Foreground Stabilization - 2026-05-14
+
+### 변경 사항
+- `SleepPlaybackService`에 `DefaultMediaNotificationProvider`를 명시적으로 등록해 Media3 재생 알림 채널과 알림 ID를 고정했다.
+- `onUpdateNotification(session, startInForegroundRequired)`를 재정의해 ExoPlayer가 버퍼링 또는 재생 가능 상태이고 `playWhenReady`인 경우 foreground 승격을 강제하도록 했다.
+- Media3 알림 갱신이 지연되거나 foreground 승격을 트리거하지 못하는 경우를 막기 위해, `startPlayback()` 진입 즉시 동일 알림 ID로 최소 foreground 알림을 생성하고 `startForeground(..., FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK)`를 직접 호출하도록 보강했다.
+- 수동 foreground 알림과 Media3 기본 알림이 같은 채널/알림 ID를 사용하게 해 중복 알림 대신 Media3가 이후 상태바 컨트롤 알림을 갱신할 수 있도록 했다.
+- `onTaskRemoved()`에서 단순 `player.isPlaying` 대신 Media3의 `isPlaybackOngoing()` 기준으로 진행 중 재생을 보존하고, 진행 중이 아닐 때만 `pauseAllPlayersAndStopSelf()`로 정리하도록 변경했다.
+- `strings.xml`에 수면 음원 재생 알림 채널명과 설명을 추가했다.
+
+### 설계 결정 이유
+- Logcat에서 `ForegroundServiceDidNotStartInTimeException`이 확인되었다. 원인은 `ContextCompat.startForegroundService()` 이후 서비스가 Android foreground-service 제한 시간 안에 `startForeground()` 상태로 승격되지 않은 것이다.
+- Media3 기본 알림/상태바 컨트롤 구조는 유지하면서 foreground 승격 판단만 보강했다. 별도 수동 Notification을 중복 생성하면 Media3 세션 컨트롤과 알림 책임이 갈라지므로 기존 세션 기반 알림 경로를 사용하는 편이 단순하고 안정적이다.
+- 단, 실제 검증에서 Media3 기본 알림 경로가 끝까지 `startForeground()`를 호출하지 않는 케이스가 반복되어, 서비스 생존 책임은 앱이 직접 보장하고 Media3는 상태바 컨트롤 갱신 책임을 맡도록 역할을 나눴다.
+- `isPlaybackOngoing()`은 Media3가 foreground 재생으로 판단하는 기준과 맞닿아 있어, 앱이 최근 앱에서 제거될 때도 실제 진행 중인 수면 재생을 불필요하게 끊지 않는다.
+
+### 직면했던 이슈 및 해결
+- 에뮬레이터 Logcat에서 `SleepPlaybackController.start()`가 `startForegroundService()`를 호출한 뒤 약 30초 후 `ForegroundServiceDidNotStartInTimeException`으로 앱 프로세스가 종료되는 것을 확인했다.
+- 1차 보강 후에도 동일 예외가 재현되어, Media3 알림 업데이트 시점에 의존하지 않고 `startPlayback()` 시작 시 직접 foreground 승격을 수행하도록 수정했다.
+- 기본 샌드박스에서는 Gradle wrapper가 배포판을 다운로드하지 못해 `Permission denied: getsockopt`로 실패했다. 승인된 네트워크 실행으로 동일 `assembleDebug` 검증을 완료했다.
+- CLI에서 빌드한 APK는 Android Studio가 설치한 기존 앱과 서명이 달라 `INSTALL_FAILED_UPDATE_INCOMPATIBLE`로 설치되지 않았다. 기존 앱 제거는 로컬 알람 데이터 삭제 위험이 있으므로 자동 수행하지 않았고, Android Studio Run으로 같은 IDE 서명 경로에서 재설치하도록 남겼다.
+
+### 검증
+- `adb logcat -d`로 기존 크래시 원인이 `ForegroundServiceDidNotStartInTimeException`임을 확인했다.
+- `.\gradlew.bat :app:assembleDebug --no-daemon` 실행 결과 `BUILD SUCCESSFUL`.
+- `adb install -r app\build\outputs\apk\debug\app-debug.apk` 실행 결과 `Success`.
+- `adb shell am start -n com.example.lura/.MainActivity`로 수정된 앱 실행을 확인했다.
+- 추가 보강 후 `GRADLE_USER_HOME=C:\Lura\.gradle-home`, `ANDROID_USER_HOME=C:\Lura\.android` 환경에서 `.\gradlew.bat :app:assembleDebug --no-daemon --offline` 실행 결과 `BUILD SUCCESSFUL`.
+
+## Fixed Alarm Playback Object Selection - 2026-05-19
+
+### 변경 사항
+- 알람에 `soundObjectKey`를 저장하도록 Room `alarms` 테이블을 version 3으로 마이그레이션했다.
+- 알람 저장 시 `/api/v1/sounds/{soundId}/play` 응답의 S3 `objectKey`를 함께 저장해 최초 지정된 실제 음원 파일을 알람에 고정했다.
+- 히스토리에서 알람을 다시 On 할 때 저장된 `soundObjectKey`를 백엔드에 전달해 같은 S3 객체의 Presigned URL만 새로 발급받도록 변경했다.
+- 기존 알람처럼 `soundObjectKey`가 비어 있는 데이터는 최초 재활성화 시 한 번 랜덤 선택 후 해당 objectKey를 저장하도록 보정했다.
+- 히스토리에서 카테고리를 변경하는 경우에도 변경 시점에 새 랜덤 objectKey를 한 번 선택하고 이후에는 같은 파일을 재생하도록 했다.
+- Spring Boot `/api/v1/sounds/{soundId}/play` API에 선택적 `objectKey` query parameter를 추가했다.
+- 백엔드는 전달받은 objectKey가 해당 sound의 S3 prefix 안에 있고 지원 오디오 확장자인 경우에만 Presigned URL을 발급하도록 검증을 추가했다.
+
+### 설계 결정 이유
+- Presigned URL은 만료되는 값이므로 알람에 URL 자체를 저장하면 장시간 후 재생 실패가 발생한다. 변하지 않는 S3 objectKey를 저장하고 재생 직전에 URL만 재발급받는 구조가 안전하다.
+- 랜덤 선택 책임은 “알람 활성화”가 아니라 “알람의 음원 지정” 시점에 있어야 한다. 그래야 사용자가 같은 알람을 껐다 켜도 동일한 수면 루틴이 유지된다.
+- 백엔드에서 objectKey prefix를 검증하지 않으면 클라이언트가 임의 S3 객체의 URL 발급을 요청할 수 있다. sound별 prefix 경계 검증으로 최소 권한 구조를 유지했다.
+- 기존 저장 알람은 objectKey가 없으므로 강제 삭제하지 않고 첫 재활성화 시 고정값을 채우는 방식으로 데이터 손실 없이 마이그레이션했다.
+
+### 직면했던 이슈 및 해결
+- 기존 구조에서는 `random-rain` 같은 슬롯 ID만 알람에 저장되고, `/play` 호출마다 S3 폴더에서 새 파일을 랜덤 선택했다. `SoundPlaybackSource`를 추가해 `sourceUri`와 `objectKey`를 함께 다루도록 분리했다.
+- Android Room schema 변경이 필요했으므로 `MIGRATION_2_3`을 추가하고 `app/schemas/.../3.json`을 생성했다.
+- 백엔드 Gradle wrapper는 기본 샌드박스에서 Gradle 배포판 다운로드가 막혔다. 승인된 네트워크 실행으로 동일 테스트를 완료했다.
+
+### 검증
+- `GRADLE_USER_HOME=C:\Lura\.gradle-home`, `ANDROID_USER_HOME=C:\Lura\.android` 환경에서 `.\gradlew.bat :app:assembleDebug --no-daemon --offline` 실행 결과 `BUILD SUCCESSFUL`.
+
+## Alarm Foreground and Background Dismiss Paths - 2026-05-19
+
+### 변경 사항
+- `AlarmEventReceiver`를 다시 도입해 `AlarmManager` 트리거 시 항상 `AlarmRingingService`를 먼저 시작하도록 했다.
+- `AlarmTriggerDispatcher`를 추가해 알람 트리거 처리를 한 곳으로 모았다. 앱이 foreground면 알람 종료 화면을 즉시 띄우고, background면 알람 서비스의 high-priority 알림/full-screen intent가 종료 진입점을 제공한다.
+- `AlarmAppVisibility`를 추가하고 `MainActivity`, `AlarmRingingActivity`의 lifecycle에서 앱 foreground 여부를 추적하도록 했다.
+- `SleepPlaybackService`의 목표 알람 시각 도달 fallback도 `AlarmTriggerDispatcher`를 호출하도록 변경했다. OS 알람 트리거가 지연되거나 막혀도 수면음 타이머가 알람음 서비스와 종료 UI 경로를 시작한다.
+- `AlarmRingingService`에서 기본 시스템 알람음 재생 실패 시 `ToneGenerator` 기반 fallback 알림음을 반복 재생하도록 보강했다.
+- `MainActivity`에서 Android 13 이상 `POST_NOTIFICATIONS` 권한을 요청하도록 추가해 background heads-up 알림이 표시될 수 있게 했다.
+
+### 설계 결정 이유
+- 사용자가 보고한 상태는 수면음 내부 타이머는 동작하지만 알람 울림 서비스/화면이 시작되지 않는 흐름이었다. 따라서 OS 알람 트리거와 수면음 타이머 양쪽 모두 같은 알람 dispatcher를 호출하도록 이중 안전 경로를 만들었다.
+- 앱 실행 중에는 Android background launch 제한을 피할 수 있으므로 즉시 `AlarmRingingActivity`를 띄워 첫 번째 이미지처럼 종료 화면을 제공한다.
+- 앱이 백그라운드일 때 임의의 앱 위에 커스텀 모달을 직접 띄우는 것은 일반 앱 권한으로 안정적으로 보장할 수 없다. Android 표준 방식인 high-priority alarm notification과 full-screen intent를 사용해 두 번째 이미지와 같은 종료 가능한 알림 표면을 제공한다.
+- 알람음 재생 실패를 조용히 무시하면 사용자는 아무 신호도 받지 못한다. 시스템 알람 URI 재생 실패 시에도 최소한 반복 알림음이 울리도록 fallback을 둔다.
+
+### 직면했던 이슈 및 해결
+- 이전 구조는 알람 시각에 `AlarmRingingActivity` 직접 실행을 시도했지만, 실제 기기 정책에 따라 화면 표시가 지연되고 앱 재진입 시에야 보이는 현상이 있었다. 서비스 시작과 화면 표시를 분리하고 foreground/background 상태에 따라 다르게 처리하도록 바꿨다.
+- background 상태의 종료 UI는 앱 내부 Dialog가 아니라 시스템 알림이어야 한다. 이를 위해 알림 권한 요청, high-priority 채널, full-screen intent, 알림 action을 함께 유지했다.
+
+### 검증
+- `GRADLE_USER_HOME=C:\Lura\.gradle-home`, `ANDROID_USER_HOME=C:\Lura\.android` 환경에서 `.\gradlew.bat :app:assembleDebug --no-daemon --offline` 실행 결과 `BUILD SUCCESSFUL`.
+
+## Alarm Activity Trigger Path - 2026-05-19
+
+### 변경 사항
+- `AlarmScheduler`의 알람 실행 PendingIntent를 `BroadcastReceiver`가 아니라 `AlarmRingingActivity`를 직접 실행하는 `PendingIntent.getActivity()` 방식으로 변경했다.
+- `AlarmRingingActivity`가 `ACTION_RING`으로 열리면 `AlarmRingingService`를 foreground service로 시작하도록 연결했다.
+- 알림을 눌러 다시 알람 화면을 열 때는 `ACTION_SHOW`를 사용해 이미 울리는 알람 서비스를 중복 재시작하지 않도록 분리했다.
+- 더 이상 사용하지 않는 `AlarmEventReceiver`와 manifest receiver 등록을 제거했다.
+
+### 설계 결정 이유
+- 기존 구조는 알람음 재생은 서비스가 담당하고, 화면 표시는 full-screen notification 정책에 의존했다. Android 버전, 알림 권한, full-screen intent 제한 상태에 따라 화면이 뜨지 않는 문제가 생길 수 있다.
+- 기본 알람앱과 유사한 동작을 위해 알람 시각에 OS가 전용 알람 화면을 직접 실행하고, 그 화면이 알람 서비스를 시작하는 구조로 바꿨다.
+- Activity와 Service의 책임을 분리해 Activity는 사용자 조작과 화면 표시를 담당하고, Service는 알람음 재생/정지만 담당하게 유지했다.
+
+### 직면했던 이슈 및 해결
+- 알람음은 울리지만 종료 화면이 나오지 않는 것은 foreground notification의 full-screen intent가 실제 기기 정책에 따라 표시되지 않았기 때문이다.
+- 알람 트리거의 1차 목표를 “서비스 시작”에서 “알람 종료 화면 실행”으로 바꿔 백그라운드 상태에서도 사용자가 알람을 끌 수 있는 진입점을 보장했다.
+
+### 검증
+- `GRADLE_USER_HOME=C:\Lura\.gradle-home`, `ANDROID_USER_HOME=C:\Lura\.android` 환경에서 `.\gradlew.bat :app:assembleDebug --no-daemon --offline` 실행 결과 `BUILD SUCCESSFUL`.
+
+## Alarm Dismiss Screen - 2026-05-19
+
+### 변경 사항
+- `AlarmRingingActivity`를 추가해 알람이 울릴 때 전용 전체 화면을 표시하고, 사용자가 명확하게 알람을 끌 수 있는 버튼을 제공하도록 했다.
+- `activity_alarm_ringing.xml`을 추가해 알람명, 안내 문구, `알람 끄기` 버튼을 표시하는 단순한 울림 화면을 구성했다.
+- `AlarmRingingService`의 알림에 full-screen intent를 연결해 알람 발생 시 `AlarmRingingActivity`가 열리도록 했다.
+- `AlarmRingingActivity`의 `알람 끄기` 버튼과 시스템 뒤로가기 동작이 모두 `AlarmRingingService.ACTION_STOP`을 호출하도록 연결했다.
+- `AlarmRingingService.stopAlarm()`에서 `stopForeground(STOP_FOREGROUND_REMOVE)`를 호출해 알람음 정지와 foreground 알림 제거를 함께 수행하도록 했다.
+- `AndroidManifest.xml`에 `USE_FULL_SCREEN_INTENT` 권한과 `AlarmRingingActivity` 선언을 추가했다.
+
+### 설계 결정 이유
+- 알림 액션만으로 알람 종료를 처리하면 기기 상태, 잠금 화면, heads-up 표시 여부에 따라 사용자가 끄기 버튼을 찾지 못할 수 있다. 알람 앱은 울림 시점에 명확한 종료 화면이 필요하다.
+- 알람 종료 책임은 여전히 `AlarmRingingService`에 두고, Activity는 사용자의 종료 명령을 전달하는 역할만 맡게 했다. 이렇게 해야 알림 액션, 전체 화면 버튼, 뒤로가기 같은 여러 진입점이 같은 종료 로직을 공유한다.
+- 전체 화면 Activity는 `showWhenLocked`, `turnScreenOn`, `KEEP_SCREEN_ON`을 사용해 잠금 화면과 화면 꺼짐 상태에서도 알람 종료 UX가 드러나도록 했다.
+
+### 직면했던 이슈 및 해결
+- 기존 foreground 알림에는 `알람 끄기` 액션이 있었지만 실제 테스트에서 사용자가 조작할 수 있는 명확한 화면이 부족했다. full-screen intent와 전용 Activity를 추가해 종료 조작을 화면 중앙의 기본 버튼으로 제공했다.
+- 알람 종료 시 서비스만 멈추고 foreground 알림이 남을 수 있는 여지를 줄이기 위해 `stopForeground(STOP_FOREGROUND_REMOVE)`를 명시적으로 호출하도록 했다.
+
+### 검증
+- `GRADLE_USER_HOME=C:\Lura\.gradle-home`, `ANDROID_USER_HOME=C:\Lura\.android` 환경에서 `.\gradlew.bat :app:assembleDebug --no-daemon --offline` 실행 결과 `BUILD SUCCESSFUL`.
+
+## Exact Alarm Permission Crash Fix - 2026-05-19
+
+### 변경 사항
+- `AndroidManifest.xml`에 `android.permission.USE_EXACT_ALARM` 권한을 추가했다.
+- `AlarmScheduler.schedule()`이 `AlarmManager.setAlarmClock()` 실패 시 예외를 밖으로 던지지 않고 `false`를 반환하도록 변경했다.
+- 알람 저장 화면과 히스토리 활성화 화면에서 시스템 알람 예약 실패를 감지하면 방금 활성화한 알람/수면 세션을 취소하고 사용자에게 안내 문구를 보여주도록 했다.
+
+### 설계 결정 이유
+- Logcat에서 저장 버튼 직후 `SecurityException: Caller com.example.lura needs to hold android.permission.SCHEDULE_EXACT_ALARM or android.permission.USE_EXACT_ALARM`가 확인됐다. 알람 앱의 핵심 요구사항은 사용자가 지정한 시각에 정확히 울리는 것이므로 `USE_EXACT_ALARM`이 현재 기능 목적에 맞다.
+- 권한 추가만으로는 특정 기기 정책이나 설치 상태 문제에서 다시 크래시가 날 수 있다. 시스템 예약 실패를 명시적인 실패값으로 반환하게 해 UI 계층이 세션 취소와 안내를 처리하도록 방어했다.
+- 알람 예약이 실패했는데 수면음만 시작되면 이전 문제처럼 알람 시각에 울리지 않는 상태가 다시 생긴다. 그래서 예약 성공 이후에만 수면음 재생을 시작하도록 순서를 유지했다.
+
+### 직면했던 이슈 및 해결
+- 에뮬레이터에 설치된 기존 앱은 정확 알람 권한이 없는 manifest로 설치되어 있어 `setAlarmClock()` 호출 순간 앱이 종료됐다.
+- 새 APK를 CLI에서 덮어 설치하려 했지만 기존 Android Studio 설치본과 서명이 달라 `INSTALL_FAILED_UPDATE_INCOMPATIBLE`이 발생했다. 사용자 데이터 삭제 위험이 있는 강제 삭제는 수행하지 않았고, Android Studio Run으로 재설치해 manifest 권한을 반영해야 한다.
+
+### 검증
+- `GRADLE_USER_HOME=C:\Lura\.gradle-home`, `ANDROID_USER_HOME=C:\Lura\.android` 환경에서 `.\gradlew.bat :app:assembleDebug --no-daemon --offline` 실행 결과 `BUILD SUCCESSFUL`.
+
+## Alarm Time Trigger and Ringing Flow - 2026-05-19
+
+### 변경 사항
+- `AlarmScheduler`를 추가해 알람 저장 또는 히스토리 활성화 시 Android `AlarmManager.setAlarmClock()`으로 실제 시스템 알람을 예약하도록 했다.
+- `AlarmEventReceiver`를 추가해 예약된 알람 시각에 시스템 브로드캐스트를 받고 `AlarmRingingService`를 foreground service로 시작하도록 연결했다.
+- `AlarmRingingService`를 추가해 알람 시각 도달 시 수면 음원을 먼저 페이드아웃시키고, 이후 기본 시스템 알람음을 반복 재생하도록 했다.
+- `SleepPlaybackController`와 `SleepPlaybackService`에 `ACTION_FADE_OUT_AND_COMPLETE` 경로를 추가해 외부 알람 트리거가 현재 수면 세션을 정상 완료 상태로 종료할 수 있게 했다.
+- 알람을 Off 하거나 삭제할 때 `AlarmScheduler.cancel()`을 호출해 이미 예약된 시스템 알람도 함께 취소되도록 했다.
+- 알람 저장 시 기존 활성 알람을 비활성화하는 기존 정책과 맞춰, 새 알람만 시스템 예약과 수면음 재생을 갖도록 연결했다.
+
+### 설계 결정 이유
+- 앱 내부 `Handler` 기반 지연 실행만으로는 앱이 백그라운드로 이동하거나 프로세스가 정리되는 상황에서 알람 시각 보장이 어렵다. 알람 시각 도달은 OS가 책임져야 하므로 `AlarmManager`를 별도 스케줄링 계층으로 분리했다.
+- `setAlarmClock()`은 사용자가 명시적으로 설정한 알람이라는 의미가 강하고, 정확 알람 권한 흐름을 최소화하면서 알람 앱 요구사항에 맞는 시스템 동작을 얻을 수 있다.
+- 수면음 종료와 알람음 재생을 한 서비스에 섞지 않고 `SleepPlaybackService`와 `AlarmRingingService`를 분리했다. 수면음은 Media3 세션/상태바 컨트롤 책임을 유지하고, 알람음은 짧고 강한 foreground ringing 책임만 갖게 하기 위해서다.
+- 알람 삭제와 Off는 UI 상태 변경만이 아니라 예약된 OS 이벤트 취소까지 포함해야 한다. 그렇지 않으면 목록에서는 꺼진 알람이 실제 시각에 다시 울리는 불일치가 발생할 수 있다.
+
+### 직면했던 이슈 및 해결
+- 기존 구조는 수면음 서비스가 목표 시각에 직접 정지 예약을 걸고 있었지만, 실제 알람음 시작 책임이 없었다. 이를 `AlarmEventReceiver`와 `AlarmRingingService`로 분리해 “시각 도달 -> 수면음 페이드아웃 -> 알람음 반복 재생” 흐름을 명확히 했다.
+- 활성 알람이 하나만 허용되는 정책과 시스템 예약이 따로 움직이면 이전 알람 예약이 남을 수 있다. 새 알람을 활성화하기 전 기존 알람 예약을 취소하고 새 알람만 예약하도록 정리했다.
+- 사용자가 활성 알람을 삭제하거나 Off 하는 경우에도 수면음과 시스템 예약이 남지 않도록 Fragment의 상태 변경 경로에서 예약 취소를 함께 호출하도록 보강했다.
+
+### 검증
+- `GRADLE_USER_HOME=C:\Lura\.gradle-home`, `ANDROID_USER_HOME=C:\Lura\.android` 환경에서 `.\gradlew.bat :app:assembleDebug --no-daemon --offline` 실행 결과 `BUILD SUCCESSFUL`.
+- `C:\Lura\backend`에서 `.\gradlew.bat test --no-daemon` 실행 결과 `BUILD SUCCESSFUL`.
+
+## Active Alarm Delete Stops Playback - 2026-05-19
+
+### 변경 사항
+- `AlarmDeleteResult`를 추가해 알람 삭제 성공 여부와 활성 수면 세션 취소 여부를 분리해서 반환하도록 했다.
+- `RoomAlarmRepository.deleteAlarm()`이 삭제 트랜잭션 안에서 해당 알람의 활성 세션을 취소하고, 실제 취소 여부를 호출자에게 전달하도록 변경했다.
+- 히스토리 화면에서 활성 알람을 삭제하면 DB 삭제 후 `SleepPlaybackController.stop()`을 호출해 실행 중인 `SleepPlaybackService`와 ExoPlayer 재생을 함께 정지하도록 연결했다.
+
+### 설계 결정 이유
+- 삭제는 단순 목록 제거가 아니라 현재 수면 루틴 종료 명령이 될 수 있다. DB에서 알람만 지우고 서비스를 그대로 두면 화면 상태와 실제 재생 상태가 갈라진다.
+- 기존 `Boolean` 반환값은 “삭제됨”만 표현해 활성 재생 정지 필요 여부를 판단하기 어렵다. 결과 타입을 명시해 Fragment가 서비스 정지 결정을 안정적으로 내리게 했다.
+- `alarm.isEnabled`와 `cancelledActivePlayback` 둘 중 하나라도 참이면 서비스를 정지한다. 세션 상태와 알람 스위치 상태가 일시적으로 어긋난 경우에도 활성 알람 삭제 후 재생이 남지 않게 하기 위해서다.
+
+### 검증
+- `GRADLE_USER_HOME=C:\Lura\.gradle-home`, `ANDROID_USER_HOME=C:\Lura\.android` 환경에서 `.\gradlew.bat :app:assembleDebug --no-daemon --offline` 실행 결과 `BUILD SUCCESSFUL`.

@@ -39,8 +39,8 @@ public class Sound {
     @Column(nullable = false)
     private int durationMinutes;
 
-    @Column(nullable = false, length = 1000)
-    private String playUrl;
+    @Column(name = "s3_prefix", nullable = false, length = 500)
+    private String s3Prefix;
 
     protected Sound() {
     }
@@ -51,14 +51,14 @@ public class Sound {
             String title,
             List<String> tags,
             int durationMinutes,
-            String playUrl
+            String s3Prefix
     ) {
         this.id = id;
         this.category = category;
         this.title = title;
         this.tags = new ArrayList<>(tags);
         this.durationMinutes = durationMinutes;
-        this.playUrl = playUrl;
+        this.s3Prefix = normalizePrefix(s3Prefix);
     }
 
     public String getId() {
@@ -81,7 +81,14 @@ public class Sound {
         return durationMinutes;
     }
 
-    public String getPlayUrl() {
-        return playUrl;
+    public String getS3Prefix() {
+        return s3Prefix;
+    }
+
+    private String normalizePrefix(String prefix) {
+        if (prefix.endsWith("/")) {
+            return prefix;
+        }
+        return prefix + "/";
     }
 }

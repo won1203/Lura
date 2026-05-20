@@ -16,5 +16,6 @@ interface AlarmRepository {
         category: SoundCategory,
         sound: SoundItem
     ): AlarmSchedule?
-    fun deleteAlarm(alarmId: String): Boolean
+    fun updateAlarmSoundObjectKey(alarmId: String, objectKey: String): AlarmSchedule?
+    fun deleteAlarm(alarmId: String): AlarmDeleteResult
 }

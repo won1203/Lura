@@ -82,6 +82,11 @@ object MockSoundRepository : SoundRepository {
     override suspend fun getRecommendedSound(categoryId: String): SoundItem? =
         recommendedSounds.firstOrNull { it.categoryId == categoryId }
 
-    override suspend fun getPlaybackSourceUri(soundId: String): String =
-        SleepSoundPlaybackCatalog.sourceUriFor(soundId)
+    override suspend fun getPlaybackSource(soundId: String, objectKey: String?): SoundPlaybackSource =
+        SoundPlaybackSource(
+            soundId = soundId,
+            categoryId = recommendedSounds.firstOrNull { it.id == soundId }?.categoryId.orEmpty(),
+            objectKey = objectKey ?: "mock/$soundId.mp3",
+            sourceUri = SleepSoundPlaybackCatalog.sourceUriFor(soundId)
+        )
 }

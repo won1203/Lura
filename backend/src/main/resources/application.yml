@@ -18,3 +18,10 @@ spring:
 
 server:
   port: 8080
+
+lura:
+  aws:
+    s3:
+      bucket: ${LURA_S3_BUCKET}
+      region: ${AWS_REGION:ap-northeast-2}
+      presigned-url-duration-minutes: ${LURA_S3_PRESIGNED_URL_DURATION_MINUTES:720}

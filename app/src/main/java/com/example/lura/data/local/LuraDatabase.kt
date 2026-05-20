@@ -10,7 +10,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
 
 @Database(
     entities = [AlarmEntity::class, SleepSessionEntity::class],
-    version = 2,
+    version = 3,
     exportSchema = true
 )
 @TypeConverters(AlarmConverters::class)
@@ -34,6 +34,7 @@ abstract class LuraDatabase : RoomDatabase() {
                 DATABASE_NAME
             )
                 .addMigrations(MIGRATION_1_2)
+                .addMigrations(MIGRATION_2_3)
                 .build()
 
         private const val DATABASE_NAME = "lura.db"
@@ -55,6 +56,12 @@ abstract class LuraDatabase : RoomDatabase() {
                 )
                 db.execSQL("CREATE INDEX IF NOT EXISTS `index_sleep_sessions_status` ON `sleep_sessions` (`status`)")
                 db.execSQL("CREATE INDEX IF NOT EXISTS `index_sleep_sessions_alarmId` ON `sleep_sessions` (`alarmId`)")
+            }
+        }
+
+        private val MIGRATION_2_3 = object : Migration(2, 3) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE `alarms` ADD COLUMN `soundObjectKey` TEXT NOT NULL DEFAULT ''")
             }
         }
     }

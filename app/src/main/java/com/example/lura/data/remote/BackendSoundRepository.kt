@@ -2,6 +2,7 @@ package com.example.lura.data.remote
 
 import com.example.lura.data.SoundCategory
 import com.example.lura.data.SoundItem
+import com.example.lura.data.SoundPlaybackSource
 import com.example.lura.data.SoundRepository
 import com.example.lura.playback.SleepSoundPlaybackCatalog
 
@@ -20,16 +21,21 @@ class BackendSoundRepository(
             .firstOrNull()
             ?.toDomain()
 
-    override suspend fun getPlaybackSourceUri(soundId: String): String {
-        val playUrl = api.getSoundPlayUrl(soundId).playUrl
-
-        return if (playUrl.isBlank() || playUrl.startsWith(MOCK_BACKEND_URL_PREFIX)) {
-            // The current backend returns placeholder URLs until S3 is connected, so playback
-            // still uses the local test source while validating that the /play API is called.
+    override suspend fun getPlaybackSource(soundId: String, objectKey: String?): SoundPlaybackSource {
+        val response = api.getSoundPlayUrl(soundId, objectKey)
+        val playUrl = response.playUrl
+        val sourceUri = if (playUrl.isBlank() || playUrl.startsWith(MOCK_BACKEND_URL_PREFIX)) {
             SleepSoundPlaybackCatalog.sourceUriFor(soundId)
         } else {
             playUrl
         }
+
+        return SoundPlaybackSource(
+            soundId = response.soundId,
+            categoryId = response.categoryId,
+            objectKey = response.objectKey,
+            sourceUri = sourceUri
+        )
     }
 
     private companion object {

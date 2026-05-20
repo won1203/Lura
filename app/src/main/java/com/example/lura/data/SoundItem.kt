@@ -5,5 +5,6 @@ data class SoundItem(
     val categoryId: String,
     val title: String,
     val tags: List<String>,
-    val durationMinutes: Int
+    val durationMinutes: Int,
+    val objectKey: String = ""
 )

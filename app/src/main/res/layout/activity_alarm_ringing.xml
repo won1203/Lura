@@ -1,0 +1,63 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/lura_background"
+    android:gravity="center"
+    android:orientation="vertical"
+    android:paddingStart="32dp"
+    android:paddingEnd="32dp"
+    tools:context=".alarm.AlarmRingingActivity">
+
+    <TextView
+        android:id="@+id/alarm_ringing_header"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:gravity="center"
+        android:includeFontPadding="false"
+        android:text="@string/alarm_ringing_screen_header"
+        android:textColor="@color/lura_accent"
+        android:textSize="15sp"
+        android:textStyle="bold" />
+
+    <TextView
+        android:id="@+id/alarm_ringing_title"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="18dp"
+        android:gravity="center"
+        android:includeFontPadding="false"
+        android:textColor="@color/lura_text_primary"
+        android:textSize="34sp"
+        android:textStyle="bold"
+        tools:text="빗소리" />
+
+    <TextView
+        android:id="@+id/alarm_ringing_message"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="14dp"
+        android:gravity="center"
+        android:lineSpacingExtra="3dp"
+        android:text="@string/alarm_ringing_screen_message"
+        android:textColor="@color/lura_text_secondary"
+        android:textSize="16sp" />
+
+    <com.google.android.material.button.MaterialButton
+        android:id="@+id/alarm_dismiss_button"
+        android:layout_width="match_parent"
+        android:layout_height="64dp"
+        android:layout_marginTop="44dp"
+        android:backgroundTint="@color/lura_accent"
+        android:text="@string/alarm_ringing_dismiss"
+        android:textColor="@color/lura_background"
+        android:textSize="18sp"
+        android:textStyle="bold"
+        app:cornerRadius="8dp"
+        app:icon="@drawable/ic_stop_24"
+        app:iconGravity="textStart"
+        app:iconPadding="8dp"
+        app:iconTint="@color/lura_background" />
+</LinearLayout>

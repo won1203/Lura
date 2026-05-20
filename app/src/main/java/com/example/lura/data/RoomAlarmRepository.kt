@@ -67,7 +67,8 @@ class RoomAlarmRepository(
                 soundId = sound.id,
                 soundTitle = sound.title,
                 soundTags = AlarmEntityMapper.encodeTags(sound.tags),
-                soundDurationMinutes = sound.durationMinutes
+                soundDurationMinutes = sound.durationMinutes,
+                soundObjectKey = sound.objectKey
             )
             if (updatedRows == 0) {
                 null
@@ -76,17 +77,35 @@ class RoomAlarmRepository(
             }
         }
 
-    override fun deleteAlarm(alarmId: String): Boolean =
+    override fun updateAlarmSoundObjectKey(alarmId: String, objectKey: String): AlarmSchedule? =
+        executeOnDisk {
+            val updatedRows = alarmDao.updateAlarmSoundObjectKey(
+                alarmId = alarmId,
+                soundObjectKey = objectKey
+            )
+            if (updatedRows == 0) {
+                null
+            } else {
+                alarmDao.getAlarm(alarmId)?.let(AlarmEntityMapper::toDomain)
+            }
+        }
+
+    override fun deleteAlarm(alarmId: String): AlarmDeleteResult =
         executeOnDisk {
             var deletedRows = 0
+            var cancelledActiveSession = false
             database.runInTransaction {
-                database.sleepSessionDao().cancelActiveSessionsForAlarm(
+                val cancelledRows = database.sleepSessionDao().cancelActiveSessionsForAlarm(
                     alarmId = alarmId,
                     cancelledStatus = SleepSessionStatus.CANCELLED
                 )
+                cancelledActiveSession = cancelledRows > 0
                 deletedRows = alarmDao.deleteAlarm(alarmId)
             }
-            deletedRows > 0
+            AlarmDeleteResult(
+                deleted = deletedRows > 0,
+                cancelledActivePlayback = cancelledActiveSession
+            )
         }
 
     private fun <T> executeOnDisk(block: () -> T): T {

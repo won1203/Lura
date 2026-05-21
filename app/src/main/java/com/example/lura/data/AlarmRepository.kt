@@ -5,6 +5,8 @@ interface AlarmRepository {
     fun saveAlarm(
         category: SoundCategory,
         sound: SoundItem,
+        sleepStartHour: Int,
+        sleepStartMinute: Int,
         hour: Int,
         minute: Int,
         weekdays: List<AlarmWeekday>,

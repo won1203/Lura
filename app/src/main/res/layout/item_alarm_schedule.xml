@@ -57,6 +57,15 @@
             tools:text="빗소리" />
 
         <TextView
+            android:id="@+id/alarm_sleep_start_time"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="10dp"
+            android:textColor="@color/lura_text_secondary"
+            android:textSize="14sp"
+            tools:text="수면 시작: 23:00" />
+
+        <TextView
             android:id="@+id/alarm_sound_title"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
@@ -64,7 +73,7 @@
             android:textColor="@color/lura_text_primary"
             android:textSize="18sp"
             android:textStyle="bold"
-            tools:text="창문 너머 밤비" />
+            tools:text="창가의 밤비" />
 
         <TextView
             android:id="@+id/alarm_repeat_days"
@@ -83,6 +92,7 @@
             android:textColor="@color/lura_text_secondary"
             android:textSize="14sp"
             tools:text="알람 켜짐" />
+
         <com.google.android.material.button.MaterialButton
             android:id="@+id/delete_alarm_button"
             style="@style/Widget.MaterialComponents.Button.TextButton"

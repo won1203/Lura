@@ -15,49 +15,68 @@ class RoomSaveAlarmAndStartSleepSession(
     override fun execute(
         category: SoundCategory?,
         sound: SoundItem?,
+        sleepStartHour: Int,
+        sleepStartMinute: Int,
         hour: Int,
         minute: Int,
-        weekdays: List<AlarmWeekday>
-    ): StartedSleepSessionResult =
+        weekdays: List<AlarmWeekday>,
+        startImmediately: Boolean
+    ): ScheduledAlarmResult =
         executeOnDisk {
             val nowEpochMillis = System.currentTimeMillis()
             val normalizedWeekdays = weekdays.sortedBy { it.sortOrder }
             val selectedCategory = category ?: UnselectedAlarmSound.category
             val selectedSound = sound ?: UnselectedAlarmSound.sound
-            val targetAlarmAtEpochMillis = alarmTargetTimeCalculator.nextTargetEpochMillis(
-                hour = hour,
-                minute = minute,
+            val plannedSleepWindow = alarmTargetTimeCalculator.nextSleepWindow(
+                sleepStartHour = sleepStartHour,
+                sleepStartMinute = sleepStartMinute,
+                wakeHour = hour,
+                wakeMinute = minute,
                 weekdays = normalizedWeekdays,
                 nowEpochMillis = nowEpochMillis
             )
+            val effectiveSleepWindow = if (startImmediately && !plannedSleepWindow.contains(nowEpochMillis)) {
+                plannedSleepWindow.copy(sleepStartAtEpochMillis = nowEpochMillis)
+            } else {
+                plannedSleepWindow
+            }
+            val shouldCreateSession = selectedSound.id != UnselectedAlarmSound.SOUND_ID &&
+                (startImmediately || effectiveSleepWindow.contains(nowEpochMillis))
 
-            var result: StartedSleepSessionResult? = null
+            var result: ScheduledAlarmResult? = null
             database.runInTransaction {
                 val alarmEntity = AlarmEntityMapper.createEntity(
                     category = selectedCategory,
                     sound = selectedSound,
+                    sleepStartHour = sleepStartHour,
+                    sleepStartMinute = sleepStartMinute,
                     hour = hour,
                     minute = minute,
                     weekdays = normalizedWeekdays,
                     createdAtEpochMillis = nowEpochMillis
                 )
-                val sessionEntity = SleepSessionEntityMapper.createPlayingEntity(
-                    alarmId = alarmEntity.id,
-                    sleepSoundId = selectedSound.id,
-                    startedAtEpochMillis = nowEpochMillis,
-                    targetAlarmAtEpochMillis = targetAlarmAtEpochMillis
-                )
+                val sessionEntity = if (shouldCreateSession) {
+                    SleepSessionEntityMapper.createPlayingEntity(
+                        alarmId = alarmEntity.id,
+                        sleepSoundId = selectedSound.id,
+                        startedAtEpochMillis = nowEpochMillis,
+                        targetAlarmAtEpochMillis = effectiveSleepWindow.wakeAtEpochMillis
+                    )
+                } else {
+                    null
+                }
 
                 database.alarmDao().disableEnabledAlarms()
                 database.alarmDao().upsertAlarm(alarmEntity)
                 // A single running sleep flow prevents playback, alarm scheduling, and recovery
                 // from competing over multiple active sessions after repeated save taps.
                 database.sleepSessionDao().cancelActiveSessions(SleepSessionStatus.CANCELLED)
-                database.sleepSessionDao().insertSession(sessionEntity)
+                sessionEntity?.let(database.sleepSessionDao()::insertSession)
 
-                result = StartedSleepSessionResult(
+                result = ScheduledAlarmResult(
                     alarmSchedule = AlarmEntityMapper.toDomain(alarmEntity),
-                    sleepSession = SleepSessionEntityMapper.toDomain(sessionEntity)
+                    sleepWindow = effectiveSleepWindow,
+                    sleepSession = sessionEntity?.let(SleepSessionEntityMapper::toDomain)
                 )
             }
 

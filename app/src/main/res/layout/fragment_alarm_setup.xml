@@ -17,11 +17,98 @@
         android:paddingEnd="24dp"
         android:paddingBottom="32dp">
 
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:gravity="center_vertical"
+            android:orientation="horizontal">
+
+            <TextView
+                android:id="@+id/sleep_start_time_picker_label"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="@string/sleep_start_time_picker_label"
+                android:textColor="@color/lura_text_primary"
+                android:textSize="18sp"
+                android:textStyle="bold" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/use_current_time_button"
+                style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                android:layout_width="wrap_content"
+                android:layout_height="40dp"
+                android:minWidth="96dp"
+                android:text="@string/sleep_start_now_button"
+                android:textColor="@color/lura_accent"
+                app:cornerRadius="8dp"
+                app:strokeColor="@color/lura_accent" />
+        </LinearLayout>
+
+        <FrameLayout
+            android:layout_width="match_parent"
+            android:layout_height="220dp"
+            android:layout_marginTop="10dp">
+
+            <TimePicker
+                android:id="@+id/sleep_start_time_picker"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:background="@android:color/transparent"
+                android:paddingTop="18dp"
+                android:paddingBottom="18dp"
+                android:timePickerMode="spinner" />
+
+            <LinearLayout
+                android:id="@+id/selected_sleep_start_time_overlay"
+                android:layout_width="176dp"
+                android:layout_height="72dp"
+                android:layout_gravity="center"
+                android:background="@color/lura_background"
+                android:clickable="false"
+                android:focusable="false"
+                android:gravity="center"
+                android:importantForAccessibility="no"
+                android:orientation="horizontal">
+
+                <TextView
+                    android:id="@+id/selected_sleep_start_hour_text"
+                    android:layout_width="72dp"
+                    android:layout_height="match_parent"
+                    android:gravity="center"
+                    android:textColor="@color/lura_time_picker_text"
+                    android:textSize="34sp"
+                    android:textStyle="bold"
+                    tools:text="23" />
+
+                <TextView
+                    android:id="@+id/selected_sleep_start_time_separator"
+                    android:layout_width="32dp"
+                    android:layout_height="match_parent"
+                    android:gravity="center"
+                    android:text="@string/time_separator"
+                    android:textColor="@color/lura_text_secondary"
+                    android:textSize="24sp"
+                    android:textStyle="bold" />
+
+                <TextView
+                    android:id="@+id/selected_sleep_start_minute_text"
+                    android:layout_width="72dp"
+                    android:layout_height="match_parent"
+                    android:gravity="center"
+                    android:textColor="@color/lura_time_picker_text"
+                    android:textSize="34sp"
+                    android:textStyle="bold"
+                    tools:text="00" />
+            </LinearLayout>
+        </FrameLayout>
+
         <TextView
             android:id="@+id/time_picker_label"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="@string/time_picker_label"
+            android:layout_marginTop="22dp"
+            android:text="@string/wake_alarm_time_picker_label"
             android:textColor="@color/lura_text_primary"
             android:textSize="18sp"
             android:textStyle="bold" />

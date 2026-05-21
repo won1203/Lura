@@ -1,16 +1,20 @@
 package com.example.lura.data
 
-data class StartedSleepSessionResult(
+data class ScheduledAlarmResult(
     val alarmSchedule: AlarmSchedule,
-    val sleepSession: SleepSession
+    val sleepWindow: SleepWindow,
+    val sleepSession: SleepSession?
 )
 
 interface SaveAlarmAndStartSleepSession {
     fun execute(
         category: SoundCategory?,
         sound: SoundItem?,
+        sleepStartHour: Int,
+        sleepStartMinute: Int,
         hour: Int,
         minute: Int,
-        weekdays: List<AlarmWeekday>
-    ): StartedSleepSessionResult
+        weekdays: List<AlarmWeekday>,
+        startImmediately: Boolean
+    ): ScheduledAlarmResult
 }

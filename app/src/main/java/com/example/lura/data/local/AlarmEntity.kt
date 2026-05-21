@@ -14,6 +14,8 @@ data class AlarmEntity(
     val soundTags: String,
     val soundDurationMinutes: Int,
     val soundObjectKey: String,
+    val sleepStartHour: Int,
+    val sleepStartMinute: Int,
     val hour: Int,
     val minute: Int,
     val weekdays: List<AlarmWeekday>,

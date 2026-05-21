@@ -80,6 +80,8 @@ class AlarmHistoryFragment : Fragment() {
         itemView.findViewById<TextView>(R.id.alarm_time).text =
             getString(R.string.alarm_time_format, alarm.hour, alarm.minute)
         itemView.findViewById<TextView>(R.id.alarm_category).text = alarm.categoryName
+        itemView.findViewById<TextView>(R.id.alarm_sleep_start_time).text =
+            getString(R.string.sleep_start_time_format, alarm.sleepStartHour, alarm.sleepStartMinute)
         itemView.findViewById<TextView>(R.id.alarm_sound_title).text = alarm.soundTitle
         itemView.findViewById<TextView>(R.id.alarm_repeat_days).text =
             getString(
@@ -220,8 +222,12 @@ class AlarmHistoryFragment : Fragment() {
             }
 
             AlarmScheduler.cancelAll(requireContext(), alarmRepository.getAlarms())
-            val scheduled = AlarmScheduler.schedule(requireContext(), result.alarmSchedule, result.sleepSession)
-            if (!scheduled) {
+            val schedulePlan = AlarmScheduler.schedule(
+                context = requireContext(),
+                alarm = result.alarmSchedule,
+                skipSleepStart = result.sleepSession != null
+            )
+            if (schedulePlan == null) {
                 withContext(Dispatchers.IO) {
                     disableAlarmAndCancelSleepSession.execute(result.alarmSchedule.id)
                 }
@@ -235,17 +241,23 @@ class AlarmHistoryFragment : Fragment() {
                 }
             }
 
-            SleepPlaybackController.start(
-                requireContext(),
-                SleepPlaybackRequest.from(
-                    alarmSchedule = result.alarmSchedule,
-                    sleepSession = result.sleepSession,
-                    sourceUri = playbackSource.sourceUri
+            if (result.sleepSession != null) {
+                SleepPlaybackController.start(
+                    requireContext(),
+                    SleepPlaybackRequest.from(
+                        alarmSchedule = result.alarmSchedule,
+                        sleepSession = result.sleepSession,
+                        sourceUri = playbackSource.sourceUri
+                    )
                 )
-            )
+            }
             Toast.makeText(
                 requireContext(),
-                R.string.sleep_playback_started_notice,
+                if (result.sleepSession != null) {
+                    getString(R.string.sleep_playback_started_notice)
+                } else {
+                    getString(R.string.sleep_start_scheduled_notice, result.alarmSchedule.categoryName)
+                },
                 Toast.LENGTH_SHORT
             ).show()
             renderAlarms(alarmRepository.getAlarms())

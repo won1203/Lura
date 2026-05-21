@@ -43,12 +43,12 @@ public class DataSeeder {
                     "이완"
             );
 
-            SoundCategory whiteNoise = findOrCreateCategory(
+            SoundCategory birdSound = findOrCreateCategory(
                     categoryRepository,
-                    "white_noise",
-                    "백색소음",
-                    "외부 소음을 덮어주는 균일한 사운드",
-                    "집중"
+                    "bird_sound",
+                    "새소리",
+                    "아침 숲에서 들리는 잔잔한 새소리",
+                    "상쾌함"
             );
 
             SoundCategory firewood = findOrCreateCategory(
@@ -91,12 +91,12 @@ public class DataSeeder {
 
             createRandomSoundSlotIfMissing(
                     soundRepository,
-                    "random-white-noise",
-                    whiteNoise,
-                    "랜덤 백색소음",
-                    List.of("수면", "마스킹", "집중"),
+                    "random-bird-sound",
+                    birdSound,
+                    "랜덤 새소리",
+                    List.of("수면", "새소리", "자연"),
                     60,
-                    "sounds/white_noise/"
+                    "sounds/bird_sound/"
             );
 
             createRandomSoundSlotIfMissing(

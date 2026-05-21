@@ -8,6 +8,7 @@
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.USE_EXACT_ALARM" />
     <uses-permission android:name="android.permission.USE_FULL_SCREEN_INTENT" />
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
 
     <application
         android:allowBackup="true"
@@ -53,10 +54,19 @@
             android:name=".alarm.AlarmEventReceiver"
             android:exported="false" />
 
+        <receiver
+            android:name=".alarm.AlarmBootReceiver"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+            </intent-filter>
+        </receiver>
+
         <service
             android:name=".alarm.AlarmRingingService"
             android:exported="false"
             android:foregroundServiceType="mediaPlayback" />
+
     </application>
 
 </manifest>

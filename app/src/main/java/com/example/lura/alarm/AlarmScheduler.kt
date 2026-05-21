@@ -4,70 +4,159 @@ import android.app.AlarmManager
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
+import android.os.Build
 import android.util.Log
 import com.example.lura.MainActivity
 import com.example.lura.data.AlarmSchedule
-import com.example.lura.data.SleepSession
+import com.example.lura.data.AlarmTargetTimeCalculator
+import com.example.lura.data.SleepWindow
+
+data class AlarmSchedulePlan(
+    val sleepWindow: SleepWindow,
+    val sleepStartScheduled: Boolean,
+    val wakeAlarmScheduled: Boolean
+)
 
 object AlarmScheduler {
     fun schedule(
         context: Context,
         alarm: AlarmSchedule,
-        sleepSession: SleepSession
-    ): Boolean {
-        if (sleepSession.targetAlarmAtEpochMillis <= System.currentTimeMillis()) {
-            return false
+        skipSleepStart: Boolean = false,
+        nowEpochMillis: Long = System.currentTimeMillis()
+    ): AlarmSchedulePlan? {
+        val sleepWindow = alarmTargetTimeCalculator.nextSleepWindow(alarm, nowEpochMillis)
+        if (sleepWindow.wakeAtEpochMillis <= nowEpochMillis) {
+            return null
         }
 
         val appContext = context.applicationContext
         val alarmManager = appContext.getSystemService(Context.ALARM_SERVICE) as AlarmManager
-        val operation = createAlarmOperation(appContext, alarm, PendingIntent.FLAG_UPDATE_CURRENT)
         val showIntent = createShowIntent(appContext, alarm)
+        var sleepStartScheduled = false
 
-        return runCatching {
+        if (!skipSleepStart && sleepWindow.sleepStartAtEpochMillis > nowEpochMillis) {
+            val sleepStartOperation = createAlarmOperation(
+                context = appContext,
+                alarm = alarm,
+                eventType = AlarmEventType.SLEEP_START,
+                pendingIntentFlag = PendingIntent.FLAG_UPDATE_CURRENT
+            )
+            val sleepStartSuccess = runCatching {
+                scheduleExact(
+                    alarmManager = alarmManager,
+                    triggerAtEpochMillis = sleepWindow.sleepStartAtEpochMillis,
+                    operation = sleepStartOperation
+                )
+            }.onFailure { error ->
+                Log.e(TAG, "Failed to schedule sleep start: ${alarm.id}", error)
+                sleepStartOperation.cancel()
+            }.isSuccess
+
+            if (!sleepStartSuccess) {
+                return null
+            }
+            sleepStartScheduled = true
+        }
+
+        val wakeOperation = createAlarmOperation(
+            context = appContext,
+            alarm = alarm,
+            eventType = AlarmEventType.WAKE_ALARM,
+            pendingIntentFlag = PendingIntent.FLAG_UPDATE_CURRENT
+        )
+        val wakeSuccess = runCatching {
             alarmManager.setAlarmClock(
-                AlarmManager.AlarmClockInfo(sleepSession.targetAlarmAtEpochMillis, showIntent),
-                operation
+                AlarmManager.AlarmClockInfo(sleepWindow.wakeAtEpochMillis, showIntent),
+                wakeOperation
             )
         }.onFailure { error ->
-            Log.e(TAG, "Failed to schedule exact alarm: ${alarm.id}", error)
-            operation.cancel()
+            Log.e(TAG, "Failed to schedule wake alarm: ${alarm.id}", error)
+            wakeOperation.cancel()
         }.isSuccess
+
+        if (!wakeSuccess) {
+            cancel(context, alarm.id)
+            return null
+        }
+
+        return AlarmSchedulePlan(
+            sleepWindow = sleepWindow,
+            sleepStartScheduled = sleepStartScheduled,
+            wakeAlarmScheduled = true
+        )
     }
 
     fun cancel(context: Context, alarmId: String) {
         val appContext = context.applicationContext
-        val operation = createAlarmOperation(appContext, alarmId, PendingIntent.FLAG_NO_CREATE) ?: return
         val alarmManager = appContext.getSystemService(Context.ALARM_SERVICE) as AlarmManager
-        alarmManager.cancel(operation)
-        operation.cancel()
+        AlarmEventType.values().forEach { eventType ->
+            val operation = createAlarmOperation(
+                context = appContext,
+                alarmId = alarmId,
+                eventType = eventType,
+                pendingIntentFlag = PendingIntent.FLAG_NO_CREATE
+            ) ?: return@forEach
+            alarmManager.cancel(operation)
+            operation.cancel()
+        }
     }
 
     fun cancelAll(context: Context, alarms: List<AlarmSchedule>) {
         alarms.forEach { cancel(context, it.id) }
     }
 
+    private fun scheduleExact(
+        alarmManager: AlarmManager,
+        triggerAtEpochMillis: Long,
+        operation: PendingIntent
+    ) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            alarmManager.setExactAndAllowWhileIdle(
+                AlarmManager.RTC_WAKEUP,
+                triggerAtEpochMillis,
+                operation
+            )
+        } else {
+            alarmManager.setExact(
+                AlarmManager.RTC_WAKEUP,
+                triggerAtEpochMillis,
+                operation
+            )
+        }
+    }
+
     private fun createAlarmOperation(
         context: Context,
         alarm: AlarmSchedule,
+        eventType: AlarmEventType,
         pendingIntentFlag: Int
     ): PendingIntent =
-        requireNotNull(createAlarmOperation(context, alarm.id, pendingIntentFlag, alarm.soundTitle))
+        requireNotNull(
+            createAlarmOperation(
+                context = context,
+                alarmId = alarm.id,
+                eventType = eventType,
+                pendingIntentFlag = pendingIntentFlag,
+                alarmTitle = alarm.soundTitle
+            )
+        )
 
     private fun createAlarmOperation(
         context: Context,
         alarmId: String,
+        eventType: AlarmEventType,
         pendingIntentFlag: Int,
         alarmTitle: String = ""
     ): PendingIntent? {
         val intent = Intent(context, AlarmEventReceiver::class.java)
-            .setAction(AlarmEventReceiver.ACTION_ALARM_TRIGGERED)
+            .setAction(AlarmEventReceiver.ACTION_ALARM_EVENT)
+            .putExtra(AlarmEventReceiver.EXTRA_EVENT_TYPE, eventType.name)
             .putExtra(AlarmRingingService.EXTRA_ALARM_ID, alarmId)
             .putExtra(AlarmRingingService.EXTRA_ALARM_TITLE, alarmTitle)
 
         return PendingIntent.getBroadcast(
             context,
-            alarmId.stableRequestCode(),
+            stableRequestCode(alarmId, eventType),
             intent,
             PendingIntent.FLAG_IMMUTABLE or pendingIntentFlag
         )
@@ -79,14 +168,16 @@ object AlarmScheduler {
 
         return PendingIntent.getActivity(
             context,
-            alarm.id.stableRequestCode(),
+            stableRequestCode(alarm.id, AlarmEventType.WAKE_ALARM),
             intent,
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
         )
     }
 
-    private fun String.stableRequestCode(): Int =
-        hashCode()
+    private fun stableRequestCode(alarmId: String, eventType: AlarmEventType): Int =
+        (alarmId.hashCode() * REQUEST_CODE_MULTIPLIER) + eventType.ordinal
 
+    private val alarmTargetTimeCalculator = AlarmTargetTimeCalculator()
+    private const val REQUEST_CODE_MULTIPLIER = 31
     private const val TAG = "AlarmScheduler"
 }

@@ -20,6 +20,8 @@ class RoomAlarmRepository(
     override fun saveAlarm(
         category: SoundCategory,
         sound: SoundItem,
+        sleepStartHour: Int,
+        sleepStartMinute: Int,
         hour: Int,
         minute: Int,
         weekdays: List<AlarmWeekday>,
@@ -29,6 +31,8 @@ class RoomAlarmRepository(
             val entity = AlarmEntityMapper.createEntity(
                 category = category,
                 sound = sound,
+                sleepStartHour = sleepStartHour,
+                sleepStartMinute = sleepStartMinute,
                 hour = hour,
                 minute = minute,
                 weekdays = weekdays,

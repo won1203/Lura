@@ -840,6 +840,31 @@
 ### 검증
 - `GRADLE_USER_HOME=C:\Lura\.gradle-home`, `ANDROID_USER_HOME=C:\Lura\.android` 환경에서 `.\gradlew.bat :app:assembleDebug --no-daemon --offline` 실행 결과 `BUILD SUCCESSFUL`.
 
+## Sleep Start Time Scheduling Policy - 2026-05-20
+
+### 변경 사항
+- 알람 데이터 모델에 `sleepStartHour`, `sleepStartMinute`를 추가하고 Room DB 버전을 4로 올렸다.
+- 알람 설정 화면에 수면 시작 시간 선택 UI와 `현재 시간` 버튼을 추가했다.
+- 알람 예약을 `SLEEP_START`와 `WAKE_ALARM` 이벤트로 분리했다.
+- `SLEEP_START` 이벤트가 발생하면 `SleepStartService`가 수면 시작 안내 알림을 표시하고, 저장된 음원 object key로 fresh 재생 URL을 받아 `SleepPlaybackService`를 시작하도록 했다.
+- `WAKE_ALARM` 이벤트가 발생하면 기존처럼 수면음을 fade-out하고 알람음을 울리며, 다음 반복 회차를 자동 재예약하도록 했다.
+- `BOOT_COMPLETED` 수신 시 활성 알람을 다시 예약하는 `AlarmBootReceiver`와 `AlarmRescheduler`를 추가했다.
+- 히스토리 화면의 On/Off 의미를 "즉시 재생"이 아니라 "수면 시작/기상 예약 활성화"에 맞게 정리했다. 현재가 수면 구간이면 즉시 재생하고, 미래 수면 시작이면 예약만 등록한다.
+
+### 설계 결정 이유
+- 알람 활성화, 수면음 재생, 기상 알람은 서로 다른 생명주기를 가진다. 하나의 On 동작에 모두 묶으면 반복 알람에서 다음 회차 음원 재생이 누락되거나 사용자가 매번 수동으로 다시 켜야 하는 문제가 생긴다.
+- 반복 요일은 기상일 기준으로 유지했다. 예를 들어 화요일 07:00 기상, 23:00 수면 시작이면 다음 회차 수면 시작은 월요일 23:00으로 계산된다.
+- 수면 시작 알림과 재생 알림, 기상 알람 알림은 역할이 다르므로 별도 이벤트와 채널로 분리했다. 이 구조가 알림 권한, foreground service, full-screen alarm의 책임을 가장 명확히 나눈다.
+- Presigned URL은 만료될 수 있으므로 미래 수면 시작 예약에 URL을 저장하지 않고, 수면 시작 시점에 object key로 fresh URL을 다시 발급받도록 했다.
+
+### 직면했던 이슈 및 해결
+- 기존 저장 로직은 알람 저장 즉시 수면 세션을 생성했다. 이를 현재가 수면 구간이거나 `현재 시간` 버튼으로 즉시 시작을 명시한 경우에만 세션을 만들도록 변경했다.
+- 기상 알람 시간 이후 다음 회차가 자동으로 이어지지 않는 문제가 있었다. 알람 트리거 시 `AlarmRescheduler`가 다음 `SLEEP_START`와 `WAKE_ALARM`을 재예약하도록 해결했다.
+- 앱 프로세스가 없어도 수면 시작 시점에 동작해야 하므로 BroadcastReceiver에서 직접 네트워크 작업을 하지 않고 `SleepStartService`로 넘겼다. 서비스는 foreground 알림을 먼저 띄운 뒤 URL 발급과 재생 시작을 처리한다.
+
+### 검증
+- `GRADLE_USER_HOME=C:\Lura\.gradle-home`, `ANDROID_USER_HOME=C:\Lura\.android` 환경에서 `.\gradlew.bat :app:assembleDebug --no-daemon --offline` 실행 결과 `BUILD SUCCESSFUL`.
+
 ## Alarm Foreground and Background Dismiss Paths - 2026-05-19
 
 ### 변경 사항
@@ -960,6 +985,45 @@
 - 삭제는 단순 목록 제거가 아니라 현재 수면 루틴 종료 명령이 될 수 있다. DB에서 알람만 지우고 서비스를 그대로 두면 화면 상태와 실제 재생 상태가 갈라진다.
 - 기존 `Boolean` 반환값은 “삭제됨”만 표현해 활성 재생 정지 필요 여부를 판단하기 어렵다. 결과 타입을 명시해 Fragment가 서비스 정지 결정을 안정적으로 내리게 했다.
 - `alarm.isEnabled`와 `cancelledActivePlayback` 둘 중 하나라도 참이면 서비스를 정지한다. 세션 상태와 알람 스위치 상태가 일시적으로 어긋난 경우에도 활성 알람 삭제 후 재생이 남지 않게 하기 위해서다.
+
+### 검증
+- `GRADLE_USER_HOME=C:\Lura\.gradle-home`, `ANDROID_USER_HOME=C:\Lura\.android` 환경에서 `.\gradlew.bat :app:assembleDebug --no-daemon --offline` 실행 결과 `BUILD SUCCESSFUL`.
+
+## Sleep Playback Notification Controls - 2026-05-20
+
+### 변경 사항
+- `SleepPlaybackService`에 `ACTION_PAUSE`, `ACTION_RESUME`을 추가하여 상태바/알림 패널에서 수면 음원을 직접 일시정지하거나 다시 재생할 수 있게 했다.
+- 기존 foreground 알림을 단순 표시용 알림에서 `Notification.MediaStyle` 기반 알림으로 변경하고, 재생/일시정지 토글 액션과 정지 액션을 추가했다.
+- 알림 버튼은 수면 음원 재생 서비스만 제어하며, 이미 예약된 시스템 알람은 취소하지 않도록 책임 범위를 분리했다.
+
+### 설계 결정 이유
+- 사용자가 수면 음원 없이 알람 기능만 원할 수 있으므로, 음원 제어는 알람 활성화/예약 상태와 독립되어야 한다. 알림에서 일시정지나 정지를 눌러도 알람 예약 자체를 건드리지 않는 구조가 가장 안전하다.
+- Media3 세션은 유지하되 foreground notification을 명시적으로 구성했다. 앱이 백그라운드로 이동해도 서비스 생존 조건을 만족하면서 사용자가 시스템 UI에서 즉시 제어할 수 있어야 하기 때문이다.
+- 별도 화면 진입 없이 상태바에서 조작하는 요구사항이므로, Fragment나 Activity 상태에 의존하지 않고 Service 내부 action intent로 처리했다.
+
+### 직면했던 이슈 및 해결
+- 기존 `DefaultMediaNotificationProvider` 기반 알림만으로는 현재 기기 UI에서 명확한 일시정지/재생/정지 버튼이 노출되지 않았다. 서비스가 직접 `MediaStyle` 액션을 포함한 알림을 갱신하도록 변경해 시스템 알림 패널에서 제어 지점을 보장했다.
+- 일시정지 상태에서도 알람 시간 도달 처리는 유지되어야 하므로, pause/resume 로직은 `stopAtAlarmRunnable`과 `AlarmManager` 예약을 건드리지 않도록 제한했다.
+
+### 검증
+- `GRADLE_USER_HOME=C:\Lura\.gradle-home`, `ANDROID_USER_HOME=C:\Lura\.android` 환경에서 `.\gradlew.bat :app:assembleDebug --no-daemon --offline` 실행 결과 `BUILD SUCCESSFUL`.
+
+## Scheduled Sleep Playback Service Consolidation - 2026-05-20
+
+### 변경 사항
+- 수면 시작 예약 이벤트가 기존 `SleepStartService`를 거친 뒤 `SleepPlaybackService`를 다시 시작하던 2단계 구조를 제거했다.
+- `AlarmEventReceiver`와 `AlarmRescheduler`가 수면 시작 시점에 `SleepPlaybackController.startScheduledAlarm()`을 통해 `SleepPlaybackService`를 직접 포그라운드 서비스로 시작하도록 변경했다.
+- `SleepPlaybackService`에 `ACTION_START_FOR_ALARM` 경로를 추가하여 앱 프로세스가 내려간 상태에서도 먼저 포그라운드 알림을 띄운 뒤, DB의 알람 정보 조회, 수면 세션 생성, 백엔드 재생 URL 발급, ExoPlayer 재생 시작을 같은 서비스 안에서 순차 처리하도록 구성했다.
+- 더 이상 사용하지 않는 `SleepStartService` 파일과 Manifest 서비스 선언을 제거했다.
+
+### 설계 결정 이유
+- 예약 브로드캐스트에서 별도 준비 서비스가 다시 재생 서비스를 시작하는 구조는 Android의 백그라운드/포그라운드 서비스 시작 제한에 취약하다. 특히 앱을 최근 앱에서 제거하거나 프로세스가 내려간 뒤 수면 시작 이벤트가 도착하면 알림은 보이지만 실제 재생 서비스 시작이 누락될 수 있다.
+- 재생을 책임지는 `SleepPlaybackService`가 수면 시작 예약 이벤트까지 직접 처리하면 포그라운드 승격, 미디어 세션, ExoPlayer, 상태바 컨트롤의 책임이 한 곳에 모인다. 이 구조가 중복을 줄이고, 실패 지점을 줄이며, 백그라운드 재생 요구사항에 더 안정적이다.
+- 부팅 복구 흐름도 동일한 `SleepPlaybackController.startScheduledAlarm()` 경로를 사용하게 하여 일반 예약 시작과 재부팅 후 복구 시작이 서로 다른 방식으로 동작하지 않도록 정리했다.
+
+### 직면했던 이슈 및 해결
+- 빌드 중 `AlarmRescheduler`가 삭제된 `SleepStartService`를 참조해 컴파일 오류가 발생했다. 해당 참조를 새 단일 경로인 `SleepPlaybackController.startScheduledAlarm()` 호출로 교체했다.
+- Kotlin daemon 권한 경고는 기존 환경성 이슈와 동일하게 발생했으나, Gradle fallback 컴파일로 최종 APK 빌드는 성공했다.
 
 ### 검증
 - `GRADLE_USER_HOME=C:\Lura\.gradle-home`, `ANDROID_USER_HOME=C:\Lura\.android` 환경에서 `.\gradlew.bat :app:assembleDebug --no-daemon --offline` 실행 결과 `BUILD SUCCESSFUL`.

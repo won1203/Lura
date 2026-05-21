@@ -21,6 +21,7 @@ object AlarmTriggerDispatcher {
                 .putExtra(AlarmRingingService.EXTRA_ALARM_ID, alarmId)
                 .putExtra(AlarmRingingService.EXTRA_ALARM_TITLE, normalizedTitle)
         )
+        AlarmRescheduler.rescheduleNext(appContext, alarmId)
 
         if (showRingingScreen) {
             showRingingActivity(appContext, alarmId, normalizedTitle.orEmpty())

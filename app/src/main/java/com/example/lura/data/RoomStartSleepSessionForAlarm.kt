@@ -12,10 +12,10 @@ class RoomStartSleepSessionForAlarm(
     private val diskExecutor: ExecutorService
 ) : StartSleepSessionForAlarm {
 
-    override fun execute(alarmId: String): StartedSleepSessionResult? =
+    override fun execute(alarmId: String): ScheduledAlarmResult? =
         executeOnDisk {
             val nowEpochMillis = System.currentTimeMillis()
-            var result: StartedSleepSessionResult? = null
+            var result: ScheduledAlarmResult? = null
 
             database.runInTransaction {
                 val alarmEntity = database.alarmDao().getAlarm(alarmId)
@@ -27,24 +27,31 @@ class RoomStartSleepSessionForAlarm(
                 database.alarmDao().disableEnabledAlarms()
                 database.alarmDao().setAlarmEnabled(alarmId, true)
                 val enabledAlarmEntity = alarmEntity.copy(isEnabled = true)
-                val targetAlarmAtEpochMillis = alarmTargetTimeCalculator.nextTargetEpochMillis(
-                    hour = enabledAlarmEntity.hour,
-                    minute = enabledAlarmEntity.minute,
+                val sleepWindow = alarmTargetTimeCalculator.nextSleepWindow(
+                    sleepStartHour = enabledAlarmEntity.sleepStartHour,
+                    sleepStartMinute = enabledAlarmEntity.sleepStartMinute,
+                    wakeHour = enabledAlarmEntity.hour,
+                    wakeMinute = enabledAlarmEntity.minute,
                     weekdays = enabledAlarmEntity.weekdays,
                     nowEpochMillis = nowEpochMillis
                 )
-                val sessionEntity = SleepSessionEntityMapper.createPlayingEntity(
-                    alarmId = enabledAlarmEntity.id,
-                    sleepSoundId = enabledAlarmEntity.soundId,
-                    startedAtEpochMillis = nowEpochMillis,
-                    targetAlarmAtEpochMillis = targetAlarmAtEpochMillis
-                )
+                val sessionEntity = if (sleepWindow.contains(nowEpochMillis)) {
+                    SleepSessionEntityMapper.createPlayingEntity(
+                        alarmId = enabledAlarmEntity.id,
+                        sleepSoundId = enabledAlarmEntity.soundId,
+                        startedAtEpochMillis = nowEpochMillis,
+                        targetAlarmAtEpochMillis = sleepWindow.wakeAtEpochMillis
+                    )
+                } else {
+                    null
+                }
 
                 database.sleepSessionDao().cancelActiveSessions(SleepSessionStatus.CANCELLED)
-                database.sleepSessionDao().insertSession(sessionEntity)
-                result = StartedSleepSessionResult(
+                sessionEntity?.let(database.sleepSessionDao()::insertSession)
+                result = ScheduledAlarmResult(
                     alarmSchedule = AlarmEntityMapper.toDomain(enabledAlarmEntity),
-                    sleepSession = SleepSessionEntityMapper.toDomain(sessionEntity)
+                    sleepWindow = sleepWindow,
+                    sleepSession = sessionEntity?.let(SleepSessionEntityMapper::toDomain)
                 )
             }
 

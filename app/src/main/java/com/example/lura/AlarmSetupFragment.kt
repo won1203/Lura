@@ -37,6 +37,7 @@ import com.example.lura.playback.SleepPlaybackRequest
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.util.Calendar
 import kotlin.math.roundToInt
 
 class AlarmSetupFragment : Fragment() {
@@ -58,6 +59,7 @@ class AlarmSetupFragment : Fragment() {
     private val weekdayButtons = mutableMapOf<AlarmWeekday, TextView>()
     private var selectedCategory: SoundCategory? = null
     private var selectedRecommendedSound: SoundItem? = null
+    private var startImmediatelyOnSave = false
 
     override fun onCreateView(
         inflater: LayoutInflater,
@@ -73,6 +75,30 @@ class AlarmSetupFragment : Fragment() {
 
         val categoryId = arguments?.getString(ARG_CATEGORY_ID)
         categoryId?.let(::loadSelectedSound)
+
+        binding.sleepStartTimePicker.setIs24HourView(true)
+        binding.sleepStartTimePicker.hour = DEFAULT_SLEEP_START_HOUR
+        binding.sleepStartTimePicker.minute = DEFAULT_SLEEP_START_MINUTE
+        updateSelectedSleepStartTimeOverlay(DEFAULT_SLEEP_START_HOUR, DEFAULT_SLEEP_START_MINUTE)
+        styleTimePicker(binding.sleepStartTimePicker)
+        binding.sleepStartTimePicker.post { styleTimePicker(binding.sleepStartTimePicker) }
+        binding.sleepStartTimePicker.setOnTimeChangedListener { picker, hourOfDay, minute ->
+            startImmediatelyOnSave = false
+            updateSelectedSleepStartTimeOverlay(hourOfDay, minute)
+            picker.post { styleTimePicker(picker) }
+            picker.postDelayed({ styleTimePicker(picker) }, TIME_PICKER_RESTYLE_DELAY_MS)
+        }
+        binding.useCurrentTimeButton.setOnClickListener {
+            val now = Calendar.getInstance()
+            binding.sleepStartTimePicker.hour = now.get(Calendar.HOUR_OF_DAY)
+            binding.sleepStartTimePicker.minute = now.get(Calendar.MINUTE)
+            updateSelectedSleepStartTimeOverlay(
+                binding.sleepStartTimePicker.hour,
+                binding.sleepStartTimePicker.minute
+            )
+            startImmediatelyOnSave = true
+            binding.sleepStartTimePicker.post { styleTimePicker(binding.sleepStartTimePicker) }
+        }
 
         binding.alarmTimePicker.setIs24HourView(true)
         binding.alarmTimePicker.hour = DEFAULT_ALARM_HOUR
@@ -127,6 +153,8 @@ class AlarmSetupFragment : Fragment() {
     ) {
         val category = selectedCategory
         val recommendedSound = selectedRecommendedSound
+        val sleepStartHour = binding.sleepStartTimePicker.hour
+        val sleepStartMinute = binding.sleepStartTimePicker.minute
         val hour = binding.alarmTimePicker.hour
         val minute = binding.alarmTimePicker.minute
 
@@ -140,6 +168,8 @@ class AlarmSetupFragment : Fragment() {
                 alarmRepository.saveAlarm(
                     category = UnselectedAlarmSound.category,
                     sound = UnselectedAlarmSound.sound,
+                    sleepStartHour = sleepStartHour,
+                    sleepStartMinute = sleepStartMinute,
                     hour = hour,
                     minute = minute,
                     weekdays = repeatWeekdays,
@@ -168,34 +198,50 @@ class AlarmSetupFragment : Fragment() {
             saveAlarmAndStartSleepSession.execute(
                 category = category,
                 sound = fixedSound,
+                sleepStartHour = sleepStartHour,
+                sleepStartMinute = sleepStartMinute,
                 hour = hour,
                 minute = minute,
-                weekdays = repeatWeekdays
+                weekdays = repeatWeekdays,
+                startImmediately = startImmediatelyOnSave
             )
         }
         AlarmScheduler.cancelAll(requireContext(), alarmRepository.getAlarms())
-        val scheduled = AlarmScheduler.schedule(requireContext(), result.alarmSchedule, result.sleepSession)
-        if (!scheduled) {
+        val schedulePlan = AlarmScheduler.schedule(
+            context = requireContext(),
+            alarm = result.alarmSchedule,
+            skipSleepStart = result.sleepSession != null
+        )
+        if (schedulePlan == null) {
             withContext(Dispatchers.IO) {
                 disableAlarmAndCancelSleepSession.execute(result.alarmSchedule.id)
             }
             Toast.makeText(requireContext(), R.string.exact_alarm_schedule_failed, Toast.LENGTH_LONG).show()
             return
         }
-        val playbackRequest = SleepPlaybackRequest.from(
-            alarmSchedule = result.alarmSchedule,
-            sleepSession = result.sleepSession,
-            sourceUri = playbackSource.sourceUri
-        )
-        SleepPlaybackController.start(requireContext(), playbackRequest)
+        result.sleepSession?.let { sleepSession ->
+            val playbackRequest = SleepPlaybackRequest.from(
+                alarmSchedule = result.alarmSchedule,
+                sleepSession = sleepSession,
+                sourceUri = playbackSource.sourceUri
+            )
+            SleepPlaybackController.start(requireContext(), playbackRequest)
+        }
         findNavController().navigate(
             R.id.action_alarmSetupFragment_to_alarmHistoryFragment,
             bundleOf(
                 AlarmHistoryFragment.ARG_NOTICE_MESSAGE to
-                    getString(
-                        R.string.category_sleep_playback_started_notice,
-                        result.alarmSchedule.categoryName
-                )
+                    if (result.sleepSession != null) {
+                        getString(
+                            R.string.category_sleep_playback_started_notice,
+                            result.alarmSchedule.categoryName
+                        )
+                    } else {
+                        getString(
+                            R.string.sleep_start_scheduled_notice,
+                            result.alarmSchedule.categoryName
+                        )
+                    }
             )
         )
     }
@@ -279,6 +325,11 @@ class AlarmSetupFragment : Fragment() {
         binding.selectedMinuteText.text = getString(R.string.two_digit_time_format, minute)
     }
 
+    private fun updateSelectedSleepStartTimeOverlay(hour: Int, minute: Int) {
+        binding.selectedSleepStartHourText.text = getString(R.string.two_digit_time_format, hour)
+        binding.selectedSleepStartMinuteText.text = getString(R.string.two_digit_time_format, minute)
+    }
+
     private fun styleTimePicker(view: View) {
         val wheelTextColor = ContextCompat.getColor(requireContext(), R.color.lura_text_secondary)
         when (view) {
@@ -338,6 +389,8 @@ class AlarmSetupFragment : Fragment() {
 
     companion object {
         const val ARG_CATEGORY_ID = "categoryId"
+        private const val DEFAULT_SLEEP_START_HOUR = 23
+        private const val DEFAULT_SLEEP_START_MINUTE = 0
         private const val DEFAULT_ALARM_HOUR = 7
         private const val DEFAULT_ALARM_MINUTE = 0
         private const val TIME_PICKER_WHEEL_TEXT_SIZE_SP = 22f

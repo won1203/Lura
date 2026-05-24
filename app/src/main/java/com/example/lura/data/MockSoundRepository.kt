@@ -11,66 +11,71 @@ object MockSoundRepository : SoundRepository {
             mood = "차분함"
         ),
         SoundCategory(
-            id = "wave",
-            name = "파도",
-            description = "느린 호흡을 돕는 해변의 물결",
+            id = "water",
+            name = "물소리",
+            description = "흐르는 물과 잔잔한 자연의 소리",
             mood = "안정감"
         ),
         SoundCategory(
-            id = "forest",
-            name = "숲",
-            description = "깊은 숲의 바람과 잎사귀 소리",
+            id = "wind",
+            name = "바람소리",
+            description = "부드럽게 스치는 바람 소리",
             mood = "이완"
         ),
         SoundCategory(
-            id = "white_noise",
-            name = "백색소음",
-            description = "외부 소음을 덮어주는 균일한 사운드",
-            mood = "집중"
+            id = "bird_sound",
+            name = "새소리",
+            description = "아침 숲에서 들리는 잔잔한 새소리",
+            mood = "상쾌함"
         ),
         SoundCategory(
             id = "firewood",
-            name = "장작 소리",
-            description = "따뜻하게 타오르는 벽난로의 잔잔한 소리",
+            name = "장작소리",
+            description = "따뜻하게 타오르는 장작의 잔잔한 소리",
             mood = "포근함"
         )
     )
 
     private val recommendedSounds = listOf(
         SoundItem(
-            id = "rain-window-night",
+            id = "random-rain",
             categoryId = "rain",
-            title = "창문 너머 밤비",
-            tags = listOf("수면", "잔잔함", "비"),
-            durationMinutes = 45
+            title = "랜덤 빗소리",
+            tags = listOf("수면", "비", "잔잔함"),
+            durationMinutes = 60,
+            objectKey = "sounds/rain/mock-rain.mp3"
         ),
         SoundItem(
-            id = "slow-coast-wave",
-            categoryId = "wave",
-            title = "느린 해안 파도",
-            tags = listOf("호흡", "파도", "휴식"),
-            durationMinutes = 60
+            id = "random-water",
+            categoryId = "water",
+            title = "랜덤 물소리",
+            tags = listOf("수면", "물", "안정감"),
+            durationMinutes = 60,
+            objectKey = "sounds/water/mock-water.mp3"
         ),
         SoundItem(
-            id = "deep-forest-wind",
-            categoryId = "forest",
-            title = "깊은 숲의 바람",
-            tags = listOf("숲", "바람", "이완"),
-            durationMinutes = 50
+            id = "random-wind",
+            categoryId = "wind",
+            title = "랜덤 바람소리",
+            tags = listOf("수면", "바람", "이완"),
+            durationMinutes = 60,
+            objectKey = "sounds/wind/mock-wind.mp3"
         ),
         SoundItem(
-            id = "soft-white-noise",
-            categoryId = "white_noise",
-            title = "부드러운 백색소음",
-            tags = listOf("마스킹", "집중", "수면"),
-            durationMinutes = 90
+            id = "random-bird-sound",
+            categoryId = "bird_sound",
+            title = "랜덤 새소리",
+            tags = listOf("수면", "새소리", "자연"),
+            durationMinutes = 60,
+            objectKey = "sounds/bird_sound/mock-bird-sound.mp3"
         ),
         SoundItem(
-            id = "warm-firewood-night",
+            id = "random-firewood",
             categoryId = "firewood",
-            title = "따뜻한 장작불",
-            tags = listOf("장작", "벽난로", "포근함"),
-            durationMinutes = 70
+            title = "랜덤 장작소리",
+            tags = listOf("수면", "장작", "포근함"),
+            durationMinutes = 60,
+            objectKey = "sounds/firewood/mock-firewood.mp3"
         )
     )
 
@@ -82,11 +87,14 @@ object MockSoundRepository : SoundRepository {
     override suspend fun getRecommendedSound(categoryId: String): SoundItem? =
         recommendedSounds.firstOrNull { it.categoryId == categoryId }
 
-    override suspend fun getPlaybackSource(soundId: String, objectKey: String?): SoundPlaybackSource =
-        SoundPlaybackSource(
+    override suspend fun getPlaybackSource(soundId: String, objectKey: String?): SoundPlaybackSource {
+        val recommendedSound = recommendedSounds.firstOrNull { it.id == soundId }
+
+        return SoundPlaybackSource(
             soundId = soundId,
-            categoryId = recommendedSounds.firstOrNull { it.id == soundId }?.categoryId.orEmpty(),
-            objectKey = objectKey ?: "mock/$soundId.mp3",
+            categoryId = recommendedSound?.categoryId.orEmpty(),
+            objectKey = objectKey ?: recommendedSound?.objectKey ?: "mock/$soundId.mp3",
             sourceUri = SleepSoundPlaybackCatalog.sourceUriFor(soundId)
         )
+    }
 }

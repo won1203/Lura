@@ -1027,3 +1027,33 @@
 
 ### 검증
 - `GRADLE_USER_HOME=C:\Lura\.gradle-home`, `ANDROID_USER_HOME=C:\Lura\.android` 환경에서 `.\gradlew.bat :app:assembleDebug --no-daemon --offline` 실행 결과 `BUILD SUCCESSFUL`.
+
+## Sleep Playback Task Removal Survival - 2026-05-22
+
+### 변경 사항
+- `SleepPlaybackService.onTaskRemoved()`에서 앱 태스크 제거 시 `isPlaybackOngoing()` 결과에 따라 서비스를 종료하던 조건을 제거했다.
+- 활성 수면 세션(`currentSessionId`)이 존재하면 앱 화면이 종료되어도 포그라운드 재생 알림을 갱신하고 서비스를 유지하도록 변경했다.
+
+### 설계 결정 이유
+- 수면음 재생과 알람 예약은 앱 화면 생명주기와 독립적으로 동작해야 한다. 사용자가 앱을 최근 앱에서 제거하거나 화면을 닫는 행위가 수면 세션 취소로 해석되면 백그라운드 재생 요구사항과 충돌한다.
+- 네트워크 스트리밍은 버퍼링/상태 전환 타이밍에 `isPlaybackOngoing()` 판단이 일시적으로 false가 될 수 있다. 종료 기준을 플레이어 상태가 아니라 도메인 상태인 활성 수면 세션 존재 여부로 바꾸는 것이 더 안정적이다.
+- 실제 종료는 알림의 정지 버튼, 알람 Off, 알람 삭제, 기상 시각 도달 후 페이드아웃 같은 명시적 경로에서만 수행되도록 책임을 분리했다.
+
+### 검증
+- `GRADLE_USER_HOME=C:\Lura\.gradle-home`, `ANDROID_USER_HOME=C:\Lura\.android` 환경에서 `.\gradlew.bat :app:assembleDebug --no-daemon --offline` 실행 결과 `BUILD SUCCESSFUL`.
+
+## Mock Sound Repository Policy Refresh - 2026-05-22
+
+### 변경 사항
+- `MockSoundRepository`를 현재 운영 카테고리 정책과 동일한 `rain`, `water`, `wind`, `bird_sound`, `firewood` 기준으로 정리했다.
+- 기존 mock 데이터에 남아 있던 `white_noise`, `soft-white-noise`, 과거 `wave`, `forest` 카테고리 흔적을 제거했다.
+- 새소리 fallback 추천 음원으로 `random-bird-sound`를 추가하고 S3 prefix 정책과 맞는 mock object key `sounds/bird_sound/mock-bird-sound.mp3`를 지정했다.
+
+### 설계 결정 이유
+- 실제 앱 실행은 백엔드 API를 우선 사용하지만, 개발 중 서버 연결 실패 또는 fallback 테스트 시 mock 데이터가 오래된 정책을 노출하면 현재 기능 검증 결과와 다른 화면이 나타날 수 있다.
+- mock repository는 삭제하지 않고 최신 정책에 맞춰 유지하여 백엔드가 꺼진 개발 환경에서도 카테고리 선택, 알람 저장, 재생 요청 흐름을 계속 검증할 수 있게 했다.
+- 실제 백엔드 연동, S3 재생, 알람/수면 세션 로직은 변경하지 않고 fallback 데이터만 수정하여 현재 정상 동작 중인 기능에 영향을 최소화했다.
+
+### 검증
+- `MockSoundRepository.kt`에서 `white_noise`, `random-white-noise`, `soft-white-noise`, `wave`, `forest` 검색 결과가 없음을 확인했다.
+- `GRADLE_USER_HOME=C:\Lura\.gradle-home`, `ANDROID_USER_HOME=C:\Lura\.android` 환경에서 `.\gradlew.bat :app:assembleDebug --no-daemon --offline` 실행 결과 `BUILD SUCCESSFUL`.

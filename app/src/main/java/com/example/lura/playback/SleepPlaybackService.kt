@@ -106,9 +106,14 @@ class SleepPlaybackService : MediaSessionService() {
     }
 
     override fun onTaskRemoved(rootIntent: Intent?) {
-        if (!isPlaybackOngoing()) {
+        if (currentSessionId == null) {
             pauseAllPlayersAndStopSelf()
+            return
         }
+
+        // 사용자가 앱 화면을 닫아도 수면 세션은 알람 시각까지 독립적으로 유지되어야 한다.
+        // 재생 중/버퍼링/일시정지 상태 판단에 따라 서비스를 종료하면 백그라운드 수면음이 끊길 수 있다.
+        updatePlaybackNotification(startInForegroundRequired = true)
     }
 
     override fun onDestroy() {

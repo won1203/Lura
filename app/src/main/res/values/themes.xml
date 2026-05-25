@@ -14,4 +14,8 @@
     </style>
 
     <style name="Theme.Lura" parent="Base.Theme.Lura" />
+
+    <style name="TextAppearance.Lura.BottomNavigation" parent="TextAppearance.MaterialComponents.Caption">
+        <item name="android:textSize">@dimen/bottom_navigation_label_text_size</item>
+    </style>
 </resources>

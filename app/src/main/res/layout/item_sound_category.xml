@@ -8,50 +8,80 @@
     android:clickable="true"
     android:focusable="true"
     android:foreground="?attr/selectableItemBackground"
-    app:cardBackgroundColor="@color/lura_surface"
+    app:cardBackgroundColor="@android:color/transparent"
     app:cardCornerRadius="8dp"
     app:cardElevation="0dp"
     app:strokeColor="@color/lura_stroke"
     app:strokeWidth="1dp">
 
-    <LinearLayout
+    <androidx.constraintlayout.widget.ConstraintLayout
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:orientation="vertical"
-        android:padding="18dp">
+        android:layout_height="wrap_content">
 
-        <TextView
-            android:id="@+id/category_mood"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:background="@drawable/bg_mood_chip"
-            android:paddingStart="10dp"
-            android:paddingTop="5dp"
-            android:paddingEnd="10dp"
-            android:paddingBottom="5dp"
-            android:textColor="@color/lura_accent"
-            android:textSize="12sp"
-            android:textStyle="bold"
-            tools:text="차분함" />
+        <ImageView
+            android:id="@+id/category_background_image"
+            android:layout_width="0dp"
+            android:layout_height="0dp"
+            android:contentDescription="@null"
+            android:scaleType="centerCrop"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toTopOf="parent"
+            tools:src="@drawable/water" />
 
-        <TextView
-            android:id="@+id/category_name"
+        <View
+            android:layout_width="0dp"
+            android:layout_height="0dp"
+            android:background="@drawable/bg_category_image_scrim"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toTopOf="parent" />
+
+        <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="12dp"
-            android:textColor="@color/lura_text_primary"
-            android:textSize="22sp"
-            android:textStyle="bold"
-            tools:text="빗소리" />
+            android:orientation="vertical"
+            android:padding="18dp"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toTopOf="parent">
 
-        <TextView
-            android:id="@+id/category_description"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="6dp"
-            android:lineSpacingExtra="2dp"
-            android:textColor="@color/lura_text_secondary"
-            android:textSize="14sp"
-            tools:text="창가에 잔잔히 떨어지는 밤비" />
-    </LinearLayout>
+            <TextView
+                android:id="@+id/category_mood"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:background="@drawable/bg_mood_chip"
+                android:paddingStart="10dp"
+                android:paddingTop="5dp"
+                android:paddingEnd="10dp"
+                android:paddingBottom="5dp"
+                android:textColor="@color/lura_accent"
+                android:textSize="12sp"
+                android:textStyle="bold"
+                tools:text="Calm" />
+
+            <TextView
+                android:id="@+id/category_name"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="12dp"
+                android:textColor="@color/lura_text_primary"
+                android:textSize="22sp"
+                android:textStyle="bold"
+                tools:text="Rain sound" />
+
+            <TextView
+                android:id="@+id/category_description"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="6dp"
+                android:lineSpacingExtra="2dp"
+                android:textColor="@color/lura_text_secondary"
+                android:textSize="14sp"
+                tools:text="Gentle rain by the window" />
+        </LinearLayout>
+    </androidx.constraintlayout.widget.ConstraintLayout>
 </com.google.android.material.card.MaterialCardView>

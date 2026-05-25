@@ -11,16 +11,12 @@ import androidx.core.content.ContextCompat
 import androidx.navigation.NavController
 import androidx.navigation.NavOptions
 import androidx.navigation.findNavController
-import androidx.navigation.ui.AppBarConfiguration
-import androidx.navigation.ui.navigateUp
-import androidx.navigation.ui.setupActionBarWithNavController
 import com.example.lura.alarm.AlarmAppVisibility
 import com.example.lura.databinding.ActivityMainBinding
 import com.google.android.material.bottomnavigation.BottomNavigationView
 
 class MainActivity : AppCompatActivity() {
 
-    private lateinit var appBarConfiguration: AppBarConfiguration
     private lateinit var binding: ActivityMainBinding
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -29,17 +25,7 @@ class MainActivity : AppCompatActivity() {
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
-        setSupportActionBar(binding.toolbar)
-
         val navController = findNavController(R.id.nav_host_fragment_content_main)
-        appBarConfiguration = AppBarConfiguration(
-            setOf(
-                R.id.homeFragment,
-                R.id.alarmSetupFragment,
-                R.id.alarmHistoryFragment
-            )
-        )
-        setupActionBarWithNavController(navController, appBarConfiguration)
         setupBottomNavigation(navController)
         requestNotificationPermissionIfNeeded()
     }
@@ -52,12 +38,6 @@ class MainActivity : AppCompatActivity() {
     override fun onStop() {
         AlarmAppVisibility.onActivityStopped()
         super.onStop()
-    }
-
-    override fun onSupportNavigateUp(): Boolean {
-        val navController = findNavController(R.id.nav_host_fragment_content_main)
-        return navController.navigateUp(appBarConfiguration)
-                || super.onSupportNavigateUp()
     }
 
     private fun setupBottomNavigation(navController: NavController) {

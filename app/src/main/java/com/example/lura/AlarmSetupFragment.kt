@@ -1,17 +1,13 @@
 package com.example.lura
 
-import android.graphics.Color
 import android.graphics.Typeface
-import android.os.Build
 import android.os.Bundle
 import android.util.TypedValue
 import android.view.Gravity
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
-import android.widget.EditText
 import android.widget.LinearLayout
-import android.widget.NumberPicker
 import android.widget.TextView
 import android.widget.Toast
 import androidx.core.content.ContextCompat
@@ -60,6 +56,11 @@ class AlarmSetupFragment : Fragment() {
     private var selectedCategory: SoundCategory? = null
     private var selectedRecommendedSound: SoundItem? = null
     private var startImmediatelyOnSave = false
+    private var selectedTimePickerMode = TimePickerMode.WAKE_ALARM
+    private var wakeAlarmHour = DEFAULT_ALARM_HOUR
+    private var wakeAlarmMinute = DEFAULT_ALARM_MINUTE
+    private var sleepStartHour = DEFAULT_SLEEP_START_HOUR
+    private var sleepStartMinute = DEFAULT_SLEEP_START_MINUTE
 
     override fun onCreateView(
         inflater: LayoutInflater,
@@ -76,43 +77,33 @@ class AlarmSetupFragment : Fragment() {
         val categoryId = arguments?.getString(ARG_CATEGORY_ID)
         categoryId?.let(::loadSelectedSound)
 
-        binding.sleepStartTimePicker.setIs24HourView(true)
-        binding.sleepStartTimePicker.hour = DEFAULT_SLEEP_START_HOUR
-        binding.sleepStartTimePicker.minute = DEFAULT_SLEEP_START_MINUTE
-        updateSelectedSleepStartTimeOverlay(DEFAULT_SLEEP_START_HOUR, DEFAULT_SLEEP_START_MINUTE)
-        styleTimePicker(binding.sleepStartTimePicker)
-        binding.sleepStartTimePicker.post { styleTimePicker(binding.sleepStartTimePicker) }
-        binding.sleepStartTimePicker.setOnTimeChangedListener { picker, hourOfDay, minute ->
-            startImmediatelyOnSave = false
-            updateSelectedSleepStartTimeOverlay(hourOfDay, minute)
-            picker.post { styleTimePicker(picker) }
-            picker.postDelayed({ styleTimePicker(picker) }, TIME_PICKER_RESTYLE_DELAY_MS)
+        binding.wakeTimeModeButton.setOnClickListener {
+            showTimePickerMode(TimePickerMode.WAKE_ALARM)
         }
-        binding.useCurrentTimeButton.setOnClickListener {
-            val now = Calendar.getInstance()
-            binding.sleepStartTimePicker.hour = now.get(Calendar.HOUR_OF_DAY)
-            binding.sleepStartTimePicker.minute = now.get(Calendar.MINUTE)
-            updateSelectedSleepStartTimeOverlay(
-                binding.sleepStartTimePicker.hour,
-                binding.sleepStartTimePicker.minute
-            )
-            startImmediatelyOnSave = true
-            binding.sleepStartTimePicker.post { styleTimePicker(binding.sleepStartTimePicker) }
+        binding.sleepTimeModeButton.setOnClickListener {
+            showTimePickerMode(TimePickerMode.SLEEP_START)
+        }
+        binding.sleepStartOptionRow.setOnClickListener {
+            showTimePickerMode(TimePickerMode.SLEEP_START)
+        }
+        binding.cancelAlarmButton.setOnClickListener {
+            findNavController().navigateUp()
         }
 
-        binding.alarmTimePicker.setIs24HourView(true)
-        binding.alarmTimePicker.hour = DEFAULT_ALARM_HOUR
-        binding.alarmTimePicker.minute = DEFAULT_ALARM_MINUTE
-        updateSelectedTimeOverlay(DEFAULT_ALARM_HOUR, DEFAULT_ALARM_MINUTE)
-        styleTimePicker(binding.alarmTimePicker)
-        binding.alarmTimePicker.post { styleTimePicker(binding.alarmTimePicker) }
-        binding.alarmTimePicker.setOnTimeChangedListener { picker, hourOfDay, minute ->
-            updateSelectedTimeOverlay(hourOfDay, minute)
-            picker.post { styleTimePicker(picker) }
-            picker.postDelayed({ styleTimePicker(picker) }, TIME_PICKER_RESTYLE_DELAY_MS)
+        setupTimePickers()
+        binding.useCurrentTimeButton.setOnClickListener {
+            showTimePickerMode(TimePickerMode.SLEEP_START)
+            val now = Calendar.getInstance()
+            setPickerTime(
+                isSleepStart = true,
+                hour = now.get(Calendar.HOUR_OF_DAY),
+                minute = now.get(Calendar.MINUTE)
+            )
+            startImmediatelyOnSave = true
         }
 
         renderWeekdaySelector()
+        showTimePickerMode(TimePickerMode.SLEEP_START)
 
         binding.saveAlarmButton.setOnClickListener {
             val repeatWeekdays = selectedWeekdays.sortedBy { it.sortOrder }
@@ -153,10 +144,10 @@ class AlarmSetupFragment : Fragment() {
     ) {
         val category = selectedCategory
         val recommendedSound = selectedRecommendedSound
-        val sleepStartHour = binding.sleepStartTimePicker.hour
-        val sleepStartMinute = binding.sleepStartTimePicker.minute
-        val hour = binding.alarmTimePicker.hour
-        val minute = binding.alarmTimePicker.minute
+        val sleepStartHour = this.sleepStartHour
+        val sleepStartMinute = this.sleepStartMinute
+        val hour = wakeAlarmHour
+        val minute = wakeAlarmMinute
 
         if (category == null || recommendedSound == null) {
             if (categoryId != null) {
@@ -320,60 +311,158 @@ class AlarmSetupFragment : Fragment() {
         binding.saveAlarmButton.alpha = if (hasSelectedWeekday) ENABLED_BUTTON_ALPHA else DISABLED_BUTTON_ALPHA
     }
 
-    private fun updateSelectedTimeOverlay(hour: Int, minute: Int) {
-        binding.selectedHourText.text = getString(R.string.two_digit_time_format, hour)
-        binding.selectedMinuteText.text = getString(R.string.two_digit_time_format, minute)
-    }
+    private fun setupTimePickers() {
+        configurePeriodPicker(binding.alarmPeriodPicker)
+        configureHourPicker(binding.alarmHourPicker)
+        configureMinutePicker(binding.alarmMinutePicker)
+        configurePeriodPicker(binding.sleepStartPeriodPicker)
+        configureHourPicker(binding.sleepStartHourPicker)
+        configureMinutePicker(binding.sleepStartMinutePicker)
 
-    private fun updateSelectedSleepStartTimeOverlay(hour: Int, minute: Int) {
-        binding.selectedSleepStartHourText.text = getString(R.string.two_digit_time_format, hour)
-        binding.selectedSleepStartMinuteText.text = getString(R.string.two_digit_time_format, minute)
-    }
+        setPickerTime(
+            isSleepStart = false,
+            hour = DEFAULT_ALARM_HOUR,
+            minute = DEFAULT_ALARM_MINUTE
+        )
+        setPickerTime(
+            isSleepStart = true,
+            hour = DEFAULT_SLEEP_START_HOUR,
+            minute = DEFAULT_SLEEP_START_MINUTE
+        )
 
-    private fun styleTimePicker(view: View) {
-        val wheelTextColor = ContextCompat.getColor(requireContext(), R.color.lura_text_secondary)
-        when (view) {
-            is NumberPicker -> {
-                view.descendantFocusability = NumberPicker.FOCUS_BLOCK_DESCENDANTS
-                applyNumberPickerStyle(view, wheelTextColor)
-            }
-            is ViewGroup -> {
-                repeat(view.childCount) { index ->
-                    styleTimePicker(view.getChildAt(index))
-                }
-            }
+        binding.alarmPeriodPicker.setOnValueChangedListener { _, _ -> updateWakeAlarmTimeFromPickers() }
+        binding.alarmHourPicker.setOnValueChangedListener { _, _ -> updateWakeAlarmTimeFromPickers() }
+        binding.alarmMinutePicker.setOnValueChangedListener { _, _ -> updateWakeAlarmTimeFromPickers() }
+        binding.sleepStartPeriodPicker.setOnValueChangedListener { _, _ ->
+            startImmediatelyOnSave = false
+            updateSleepStartTimeFromPickers()
+        }
+        binding.sleepStartHourPicker.setOnValueChangedListener { _, _ ->
+            startImmediatelyOnSave = false
+            updateSleepStartTimeFromPickers()
+        }
+        binding.sleepStartMinutePicker.setOnValueChangedListener { _, _ ->
+            startImmediatelyOnSave = false
+            updateSleepStartTimeFromPickers()
         }
     }
 
-    private fun applyTimeTextStyle(view: View, textColor: Int) {
-        when (view) {
-            is EditText -> {
-                view.setTextColor(Color.TRANSPARENT)
-                view.setTextSize(TypedValue.COMPLEX_UNIT_SP, TIME_PICKER_WHEEL_TEXT_SIZE_SP)
-            }
-            is TextView -> {
-                view.setTextColor(textColor)
-                view.setTextSize(TypedValue.COMPLEX_UNIT_SP, TIME_PICKER_WHEEL_TEXT_SIZE_SP)
-            }
-            is ViewGroup -> {
-                repeat(view.childCount) { index ->
-                    applyTimeTextStyle(view.getChildAt(index), textColor)
-                }
-            }
+    private fun configurePeriodPicker(picker: WheelPickerView) {
+        picker.selectedTextSizeSp = PERIOD_PICKER_SELECTED_TEXT_SIZE_SP
+        picker.secondaryTextSizeSp = PERIOD_PICKER_SECONDARY_TEXT_SIZE_SP
+        picker.setRange(
+            minValue = PERIOD_AM,
+            maxValue = PERIOD_PM,
+            displayedValues = arrayOf(
+                getString(R.string.time_period_am),
+                getString(R.string.time_period_pm)
+            ),
+            wrapSelectorWheel = false
+        )
+    }
+
+    private fun configureHourPicker(picker: WheelPickerView) {
+        picker.setRange(
+            minValue = MIN_DISPLAY_HOUR,
+            maxValue = MAX_DISPLAY_HOUR,
+            wrapSelectorWheel = true
+        )
+    }
+
+    private fun configureMinutePicker(picker: WheelPickerView) {
+        picker.setRange(
+            minValue = MIN_MINUTE,
+            maxValue = MAX_MINUTE,
+            displayedValues = (MIN_MINUTE..MAX_MINUTE)
+                .map { getString(R.string.two_digit_time_format, it) }
+                .toTypedArray(),
+            wrapSelectorWheel = true
+        )
+    }
+
+    private fun setPickerTime(isSleepStart: Boolean, hour: Int, minute: Int) {
+        val periodValue = if (hour < NOON_HOUR) PERIOD_AM else PERIOD_PM
+        val displayHour = displayHour(hour)
+        if (isSleepStart) {
+            binding.sleepStartPeriodPicker.value = periodValue
+            binding.sleepStartHourPicker.value = displayHour
+            binding.sleepStartMinutePicker.value = minute
+            updateSleepStartTimeFromPickers()
+        } else {
+            binding.alarmPeriodPicker.value = periodValue
+            binding.alarmHourPicker.value = displayHour
+            binding.alarmMinutePicker.value = minute
+            updateWakeAlarmTimeFromPickers()
         }
     }
 
-    private fun applyNumberPickerStyle(numberPicker: NumberPicker, textColor: Int) {
-        setNumberPickerTextColor(numberPicker, textColor)
-        applyTimeTextStyle(numberPicker, textColor)
-        numberPicker.invalidate()
+    private fun updateWakeAlarmTimeFromPickers() {
+        wakeAlarmHour = toTwentyFourHour(
+            periodValue = binding.alarmPeriodPicker.value,
+            displayHour = binding.alarmHourPicker.value
+        )
+        wakeAlarmMinute = binding.alarmMinutePicker.value
     }
 
-    private fun setNumberPickerTextColor(numberPicker: NumberPicker, textColor: Int) {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            numberPicker.setTextColor(textColor)
-        }
+    private fun updateSleepStartTimeFromPickers() {
+        sleepStartHour = toTwentyFourHour(
+            periodValue = binding.sleepStartPeriodPicker.value,
+            displayHour = binding.sleepStartHourPicker.value
+        )
+        sleepStartMinute = binding.sleepStartMinutePicker.value
+        updateSleepStartSummary()
     }
+
+    private fun updateSleepStartSummary() {
+        val period = periodText(sleepStartHour)
+        binding.sleepStartOptionSummary.text = getString(
+            R.string.time_display_format,
+            period,
+            displayHour(sleepStartHour),
+            sleepStartMinute
+        )
+    }
+
+    private fun showTimePickerMode(mode: TimePickerMode) {
+        selectedTimePickerMode = mode
+        val isWakeAlarm = mode == TimePickerMode.WAKE_ALARM
+        binding.alarmTimePickerPanel.visibility = if (isWakeAlarm) View.VISIBLE else View.GONE
+        binding.sleepStartTimePickerPanel.visibility = if (isWakeAlarm) View.GONE else View.VISIBLE
+        updateTimeModeButton(
+            button = binding.wakeTimeModeButton,
+            isSelected = isWakeAlarm
+        )
+        updateTimeModeButton(
+            button = binding.sleepTimeModeButton,
+            isSelected = !isWakeAlarm
+        )
+    }
+
+    private fun updateTimeModeButton(button: TextView, isSelected: Boolean) {
+        button.setBackgroundResource(
+            if (isSelected) R.drawable.bg_time_mode_selected else R.drawable.bg_time_mode_unselected
+        )
+        button.setTextColor(
+            ContextCompat.getColor(
+                requireContext(),
+                if (isSelected) R.color.lura_background else R.color.lura_text_secondary
+            )
+        )
+    }
+
+    private fun periodText(hour: Int): String =
+        getString(if (hour < NOON_HOUR) R.string.time_period_am else R.string.time_period_pm)
+
+    private fun displayHour(hour: Int): Int {
+        val hourInTwelveHourClock = hour % NOON_HOUR
+        return if (hourInTwelveHourClock == 0) NOON_HOUR else hourInTwelveHourClock
+    }
+
+    private fun toTwentyFourHour(periodValue: Int, displayHour: Int): Int =
+        when (periodValue) {
+            PERIOD_AM -> if (displayHour == NOON_HOUR) 0 else displayHour
+            else -> if (displayHour == NOON_HOUR) NOON_HOUR else displayHour + NOON_HOUR
+        }
 
     private fun Int.dpToPx(): Int =
         TypedValue.applyDimension(
@@ -389,16 +478,28 @@ class AlarmSetupFragment : Fragment() {
 
     companion object {
         const val ARG_CATEGORY_ID = "categoryId"
+        private const val NOON_HOUR = 12
         private const val DEFAULT_SLEEP_START_HOUR = 23
         private const val DEFAULT_SLEEP_START_MINUTE = 0
         private const val DEFAULT_ALARM_HOUR = 7
         private const val DEFAULT_ALARM_MINUTE = 0
-        private const val TIME_PICKER_WHEEL_TEXT_SIZE_SP = 22f
-        private const val TIME_PICKER_RESTYLE_DELAY_MS = 80L
-        private const val WEEKDAY_BUTTON_SIZE_DP = 44
-        private const val WEEKDAY_BUTTON_GAP_DP = 10
-        private const val WEEKDAY_BUTTON_TEXT_SIZE_SP = 16f
+        private const val PERIOD_AM = 0
+        private const val PERIOD_PM = 1
+        private const val PERIOD_PICKER_SELECTED_TEXT_SIZE_SP = 34f
+        private const val PERIOD_PICKER_SECONDARY_TEXT_SIZE_SP = 18f
+        private const val MIN_DISPLAY_HOUR = 1
+        private const val MAX_DISPLAY_HOUR = 12
+        private const val MIN_MINUTE = 0
+        private const val MAX_MINUTE = 59
+        private const val WEEKDAY_BUTTON_SIZE_DP = 34
+        private const val WEEKDAY_BUTTON_GAP_DP = 14
+        private const val WEEKDAY_BUTTON_TEXT_SIZE_SP = 14f
         private const val ENABLED_BUTTON_ALPHA = 1f
         private const val DISABLED_BUTTON_ALPHA = 0.45f
+    }
+
+    private enum class TimePickerMode {
+        WAKE_ALARM,
+        SLEEP_START
     }
 }

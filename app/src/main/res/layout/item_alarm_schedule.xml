@@ -4,42 +4,103 @@
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:layout_marginBottom="12dp"
+    android:layout_marginBottom="14dp"
+    android:clickable="true"
+    android:focusable="true"
+    android:foreground="?attr/selectableItemBackground"
     app:cardBackgroundColor="@color/lura_surface"
     app:cardCornerRadius="8dp"
     app:cardElevation="0dp"
     app:strokeColor="@color/lura_stroke"
     app:strokeWidth="1dp">
 
-    <LinearLayout
+    <androidx.constraintlayout.widget.ConstraintLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:orientation="vertical"
-        android:padding="18dp">
+        android:minHeight="146dp"
+        android:paddingStart="22dp"
+        android:paddingTop="20dp"
+        android:paddingEnd="20dp"
+        android:paddingBottom="18dp">
 
-        <LinearLayout
-            android:layout_width="match_parent"
+        <TextView
+            android:id="@+id/alarm_time_period"
+            android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:gravity="center_vertical"
-            android:orientation="horizontal">
+            android:textColor="@color/lura_text_primary"
+            android:textSize="16sp"
+            android:textStyle="bold"
+            app:layout_constraintBaseline_toBaselineOf="@id/alarm_time"
+            app:layout_constraintStart_toStartOf="parent"
+            tools:text="오전" />
 
-            <TextView
-                android:id="@+id/alarm_time"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:textColor="@color/lura_text_primary"
-                android:textSize="28sp"
-                android:textStyle="bold"
-                tools:text="07:00" />
+        <TextView
+            android:id="@+id/alarm_time"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="10dp"
+            android:includeFontPadding="false"
+            android:textColor="@color/lura_text_primary"
+            android:textSize="40sp"
+            android:textStyle="bold"
+            app:layout_constraintEnd_toStartOf="@id/alarm_repeat_days"
+            app:layout_constraintStart_toEndOf="@id/alarm_time_period"
+            app:layout_constraintTop_toTopOf="parent"
+            tools:text="8:30" />
 
-            <com.google.android.material.switchmaterial.SwitchMaterial
-                android:id="@+id/alarm_enabled_switch"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:minWidth="56dp"
-                android:text="@null" />
-        </LinearLayout>
+        <TextView
+            android:id="@+id/alarm_repeat_days"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginEnd="12dp"
+            android:ellipsize="end"
+            android:maxWidth="96dp"
+            android:maxLines="1"
+            android:textColor="@color/lura_accent"
+            android:textSize="14sp"
+            android:textStyle="bold"
+            app:layout_constraintBaseline_toBaselineOf="@id/alarm_time"
+            app:layout_constraintEnd_toStartOf="@id/alarm_enabled_switch"
+            tools:text="매일" />
+
+        <com.google.android.material.switchmaterial.SwitchMaterial
+            android:id="@+id/alarm_enabled_switch"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:minWidth="56dp"
+            android:text="@null"
+            app:layout_constraintBottom_toBottomOf="@id/alarm_time"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintTop_toTopOf="@id/alarm_time" />
+
+        <TextView
+            android:id="@+id/alarm_sleep_start_time"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="18dp"
+            android:ellipsize="end"
+            android:maxLines="1"
+            android:textColor="@color/lura_text_secondary"
+            android:textSize="13sp"
+            app:layout_constraintEnd_toStartOf="@id/delete_alarm_button"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toBottomOf="@id/alarm_time"
+            tools:text="수면 시작: 23:00" />
+
+        <TextView
+            android:id="@+id/alarm_sound_title"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="5dp"
+            android:ellipsize="end"
+            android:maxLines="1"
+            android:textColor="@color/lura_text_primary"
+            android:textSize="14sp"
+            android:textStyle="bold"
+            app:layout_constraintEnd_toStartOf="@id/delete_alarm_button"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toBottomOf="@id/alarm_sleep_start_time"
+            tools:text="창가의 빗소리" />
 
         <TextView
             android:id="@+id/alarm_category"
@@ -47,50 +108,24 @@
             android:layout_height="wrap_content"
             android:layout_marginTop="10dp"
             android:background="@drawable/bg_mood_chip"
-            android:paddingStart="10dp"
-            android:paddingTop="5dp"
-            android:paddingEnd="10dp"
-            android:paddingBottom="5dp"
+            android:ellipsize="end"
+            android:maxLines="1"
+            android:paddingStart="9dp"
+            android:paddingTop="4dp"
+            android:paddingEnd="9dp"
+            android:paddingBottom="4dp"
             android:textColor="@color/lura_accent"
-            android:textSize="12sp"
+            android:textSize="11sp"
             android:textStyle="bold"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toBottomOf="@id/alarm_sound_title"
             tools:text="빗소리" />
 
         <TextView
-            android:id="@+id/alarm_sleep_start_time"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="10dp"
-            android:textColor="@color/lura_text_secondary"
-            android:textSize="14sp"
-            tools:text="수면 시작: 23:00" />
-
-        <TextView
-            android:id="@+id/alarm_sound_title"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="12dp"
-            android:textColor="@color/lura_text_primary"
-            android:textSize="18sp"
-            android:textStyle="bold"
-            tools:text="창가의 밤비" />
-
-        <TextView
-            android:id="@+id/alarm_repeat_days"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="6dp"
-            android:textColor="@color/lura_text_secondary"
-            android:textSize="14sp"
-            tools:text="반복: 매일" />
-
-        <TextView
             android:id="@+id/alarm_status"
-            android:layout_width="match_parent"
+            android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginTop="6dp"
-            android:textColor="@color/lura_text_secondary"
-            android:textSize="14sp"
+            android:visibility="gone"
             tools:text="알람 켜짐" />
 
         <com.google.android.material.button.MaterialButton
@@ -98,11 +133,11 @@
             style="@style/Widget.MaterialComponents.Button.TextButton"
             android:layout_width="wrap_content"
             android:layout_height="40dp"
-            android:layout_gravity="end"
-            android:layout_marginTop="8dp"
-            android:minWidth="64dp"
+            android:minWidth="56dp"
             android:text="@string/delete_alarm"
             android:textColor="@color/lura_text_secondary"
-            app:cornerRadius="8dp" />
-    </LinearLayout>
+            app:cornerRadius="8dp"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintEnd_toEndOf="parent" />
+    </androidx.constraintlayout.widget.ConstraintLayout>
 </com.google.android.material.card.MaterialCardView>

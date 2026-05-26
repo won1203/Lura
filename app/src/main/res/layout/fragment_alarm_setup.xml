@@ -4,7 +4,7 @@
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@color/lura_background"
+    android:background="@android:color/transparent"
     android:fillViewport="true"
     tools:context=".AlarmSetupFragment">
 
@@ -12,170 +12,162 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="vertical"
-        android:paddingStart="24dp"
-        android:paddingTop="28dp"
-        android:paddingEnd="24dp"
+        android:paddingStart="16dp"
+        android:paddingTop="36dp"
+        android:paddingEnd="16dp"
         android:paddingBottom="32dp">
 
         <LinearLayout
+            android:id="@+id/time_mode_selector"
             android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:gravity="center_vertical"
-            android:orientation="horizontal">
+            android:layout_height="44dp"
+            android:layout_marginStart="28dp"
+            android:layout_marginEnd="28dp"
+            android:background="@drawable/bg_time_mode_group"
+            android:gravity="center"
+            android:orientation="horizontal"
+            android:padding="4dp">
 
             <TextView
-                android:id="@+id/sleep_start_time_picker_label"
+                android:id="@+id/sleep_time_mode_button"
                 android:layout_width="0dp"
-                android:layout_height="wrap_content"
+                android:layout_height="match_parent"
                 android:layout_weight="1"
+                android:background="@drawable/bg_time_mode_unselected"
+                android:clickable="true"
+                android:focusable="true"
+                android:gravity="center"
                 android:text="@string/sleep_start_time_picker_label"
-                android:textColor="@color/lura_text_primary"
-                android:textSize="18sp"
+                android:textColor="@color/lura_text_secondary"
+                android:textSize="13sp"
                 android:textStyle="bold" />
 
-            <com.google.android.material.button.MaterialButton
-                android:id="@+id/use_current_time_button"
-                style="@style/Widget.MaterialComponents.Button.OutlinedButton"
-                android:layout_width="wrap_content"
-                android:layout_height="40dp"
-                android:minWidth="96dp"
-                android:text="@string/sleep_start_now_button"
-                android:textColor="@color/lura_accent"
-                app:cornerRadius="8dp"
-                app:strokeColor="@color/lura_accent" />
+            <TextView
+                android:id="@+id/wake_time_mode_button"
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_weight="1"
+                android:background="@drawable/bg_time_mode_unselected"
+                android:clickable="true"
+                android:focusable="true"
+                android:gravity="center"
+                android:text="@string/wake_alarm_time_picker_label"
+                android:textColor="@color/lura_text_secondary"
+                android:textSize="13sp"
+                android:textStyle="bold" />
         </LinearLayout>
 
         <FrameLayout
+            android:id="@+id/time_picker_stage"
             android:layout_width="match_parent"
-            android:layout_height="220dp"
-            android:layout_marginTop="10dp">
+            android:layout_height="330dp"
+            android:layout_marginTop="18dp">
 
-            <TimePicker
-                android:id="@+id/sleep_start_time_picker"
+            <FrameLayout
+                android:id="@+id/alarm_time_picker_panel"
                 android:layout_width="match_parent"
-                android:layout_height="match_parent"
-                android:background="@android:color/transparent"
-                android:paddingTop="18dp"
-                android:paddingBottom="18dp"
-                android:timePickerMode="spinner" />
-
-            <LinearLayout
-                android:id="@+id/selected_sleep_start_time_overlay"
-                android:layout_width="176dp"
-                android:layout_height="72dp"
-                android:layout_gravity="center"
-                android:background="@color/lura_background"
-                android:clickable="false"
-                android:focusable="false"
-                android:gravity="center"
-                android:importantForAccessibility="no"
-                android:orientation="horizontal">
+                android:layout_height="match_parent">
 
                 <TextView
-                    android:id="@+id/selected_sleep_start_hour_text"
-                    android:layout_width="72dp"
-                    android:layout_height="match_parent"
-                    android:gravity="center"
-                    android:textColor="@color/lura_time_picker_text"
-                    android:textSize="34sp"
-                    android:textStyle="bold"
-                    tools:text="23" />
-
-                <TextView
-                    android:id="@+id/selected_sleep_start_time_separator"
-                    android:layout_width="32dp"
-                    android:layout_height="match_parent"
-                    android:gravity="center"
-                    android:text="@string/time_separator"
+                    android:id="@+id/time_picker_label"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_gravity="center_horizontal|top"
+                    android:text="@string/wake_alarm_time_picker_label"
                     android:textColor="@color/lura_text_secondary"
-                    android:textSize="24sp"
+                    android:textSize="14sp"
                     android:textStyle="bold" />
 
-                <TextView
-                    android:id="@+id/selected_sleep_start_minute_text"
-                    android:layout_width="72dp"
-                    android:layout_height="match_parent"
+                <LinearLayout
+                    android:id="@+id/alarm_time_picker_row"
+                    android:layout_width="match_parent"
+                    android:layout_height="250dp"
+                    android:layout_gravity="center"
                     android:gravity="center"
-                    android:textColor="@color/lura_time_picker_text"
-                    android:textSize="34sp"
-                    android:textStyle="bold"
-                    tools:text="00" />
-            </LinearLayout>
-        </FrameLayout>
+                    android:orientation="horizontal">
 
-        <TextView
-            android:id="@+id/time_picker_label"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="22dp"
-            android:text="@string/wake_alarm_time_picker_label"
-            android:textColor="@color/lura_text_primary"
-            android:textSize="18sp"
-            android:textStyle="bold" />
+                    <com.example.lura.WheelPickerView
+                        android:id="@+id/alarm_period_picker"
+                        android:layout_width="104dp"
+                        android:layout_height="match_parent" />
 
-        <FrameLayout
-            android:layout_width="match_parent"
-            android:layout_height="260dp"
-            android:layout_marginTop="10dp">
+                    <com.example.lura.WheelPickerView
+                        android:id="@+id/alarm_hour_picker"
+                        android:layout_width="92dp"
+                        android:layout_height="match_parent" />
 
-            <TimePicker
-                android:id="@+id/alarm_time_picker"
+                    <TextView
+                        android:layout_width="40dp"
+                        android:layout_height="match_parent"
+                        android:gravity="center"
+                        android:text="@string/time_separator"
+                        android:textColor="@color/lura_time_picker_text"
+                        android:textSize="40sp"
+                        android:textStyle="bold" />
+
+                    <com.example.lura.WheelPickerView
+                        android:id="@+id/alarm_minute_picker"
+                        android:layout_width="92dp"
+                        android:layout_height="match_parent" />
+                </LinearLayout>
+            </FrameLayout>
+
+            <FrameLayout
+                android:id="@+id/sleep_start_time_picker_panel"
                 android:layout_width="match_parent"
                 android:layout_height="match_parent"
-                android:background="@android:color/transparent"
-                android:paddingTop="18dp"
-                android:paddingBottom="18dp"
-                android:timePickerMode="spinner" />
-
-            <LinearLayout
-                android:id="@+id/selected_time_overlay"
-                android:layout_width="176dp"
-                android:layout_height="72dp"
-                android:layout_gravity="center"
-                android:background="@color/lura_background"
-                android:clickable="false"
-                android:focusable="false"
-                android:gravity="center"
-                android:importantForAccessibility="no"
-                android:orientation="horizontal">
+                android:visibility="gone">
 
                 <TextView
-                    android:id="@+id/selected_hour_text"
-                    android:layout_width="72dp"
-                    android:layout_height="match_parent"
-                    android:gravity="center"
-                    android:textColor="@color/lura_time_picker_text"
-                    android:textSize="34sp"
-                    android:textStyle="bold"
-                    tools:text="07" />
-
-                <TextView
-                    android:id="@+id/selected_time_separator"
-                    android:layout_width="32dp"
-                    android:layout_height="match_parent"
-                    android:gravity="center"
-                    android:text="@string/time_separator"
+                    android:id="@+id/sleep_start_time_picker_label"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_gravity="center_horizontal|top"
+                    android:text="@string/sleep_start_time_picker_label"
                     android:textColor="@color/lura_text_secondary"
-                    android:textSize="24sp"
+                    android:textSize="14sp"
                     android:textStyle="bold" />
 
-                <TextView
-                    android:id="@+id/selected_minute_text"
-                    android:layout_width="72dp"
-                    android:layout_height="match_parent"
+                <LinearLayout
+                    android:id="@+id/sleep_start_time_picker_row"
+                    android:layout_width="match_parent"
+                    android:layout_height="250dp"
+                    android:layout_gravity="center"
                     android:gravity="center"
-                    android:textColor="@color/lura_time_picker_text"
-                    android:textSize="34sp"
-                    android:textStyle="bold"
-                    tools:text="00" />
-            </LinearLayout>
+                    android:orientation="horizontal">
+
+                    <com.example.lura.WheelPickerView
+                        android:id="@+id/sleep_start_period_picker"
+                        android:layout_width="104dp"
+                        android:layout_height="match_parent" />
+
+                    <com.example.lura.WheelPickerView
+                        android:id="@+id/sleep_start_hour_picker"
+                        android:layout_width="92dp"
+                        android:layout_height="match_parent" />
+
+                    <TextView
+                        android:layout_width="40dp"
+                        android:layout_height="match_parent"
+                        android:gravity="center"
+                        android:text="@string/time_separator"
+                        android:textColor="@color/lura_time_picker_text"
+                        android:textSize="40sp"
+                        android:textStyle="bold" />
+
+                    <com.example.lura.WheelPickerView
+                        android:id="@+id/sleep_start_minute_picker"
+                        android:layout_width="92dp"
+                        android:layout_height="match_parent" />
+                </LinearLayout>
+            </FrameLayout>
         </FrameLayout>
 
         <com.google.android.material.card.MaterialCardView
-            android:id="@+id/weekday_picker_card"
+            android:id="@+id/alarm_options_panel"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="22dp"
+            android:layout_marginTop="16dp"
             app:cardBackgroundColor="@color/lura_surface"
             app:cardCornerRadius="8dp"
             app:cardElevation="0dp"
@@ -186,7 +178,10 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="vertical"
-                android:padding="18dp">
+                android:paddingStart="18dp"
+                android:paddingTop="20dp"
+                android:paddingEnd="18dp"
+                android:paddingBottom="8dp">
 
                 <LinearLayout
                     android:layout_width="match_parent"
@@ -195,52 +190,105 @@
                     android:orientation="horizontal">
 
                     <TextView
-                        android:id="@+id/weekday_picker_label"
+                        android:id="@+id/selected_weekdays_summary"
                         android:layout_width="0dp"
                         android:layout_height="wrap_content"
                         android:layout_weight="1"
-                        android:text="@string/weekday_picker_label"
                         android:textColor="@color/lura_text_primary"
-                        android:textSize="18sp"
-                        android:textStyle="bold" />
-
-                    <TextView
-                        android:id="@+id/selected_weekdays_summary"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:textColor="@color/lura_accent"
-                        android:textSize="14sp"
+                        android:textSize="16sp"
                         android:textStyle="bold"
                         tools:text="매일" />
+
                 </LinearLayout>
 
-                <HorizontalScrollView
+                <LinearLayout
+                    android:id="@+id/weekday_selector"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="18dp"
-                    android:fillViewport="false"
-                    android:overScrollMode="never"
-                    android:scrollbars="none">
+                    android:layout_marginTop="22dp"
+                    android:gravity="center"
+                    android:orientation="horizontal" />
+
+                <View
+                    android:layout_width="match_parent"
+                    android:layout_height="1dp"
+                    android:layout_marginTop="24dp"
+                    android:background="@color/lura_stroke" />
+
+                <LinearLayout
+                    android:id="@+id/sleep_start_option_row"
+                    android:layout_width="match_parent"
+                    android:layout_height="72dp"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal">
 
                     <LinearLayout
-                        android:id="@+id/weekday_selector"
-                        android:layout_width="wrap_content"
+                        android:layout_width="0dp"
                         android:layout_height="wrap_content"
-                        android:orientation="horizontal" />
-                </HorizontalScrollView>
+                        android:layout_weight="1"
+                        android:orientation="vertical">
+
+                        <TextView
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:text="@string/sleep_start_time_picker_label"
+                            android:textColor="@color/lura_text_primary"
+                            android:textSize="16sp"
+                            android:textStyle="bold" />
+
+                        <TextView
+                            android:id="@+id/sleep_start_option_summary"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="4dp"
+                            android:textColor="@color/lura_accent"
+                            android:textSize="14sp"
+                            tools:text="오후 11:00" />
+                    </LinearLayout>
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/use_current_time_button"
+                        style="@style/Widget.MaterialComponents.Button.TextButton"
+                        android:layout_width="wrap_content"
+                        android:layout_height="44dp"
+                        android:minWidth="72dp"
+                        android:text="@string/sleep_start_now_button"
+                        android:textColor="@color/lura_text_secondary"
+                        app:cornerRadius="8dp" />
+                </LinearLayout>
             </LinearLayout>
         </com.google.android.material.card.MaterialCardView>
 
-        <com.google.android.material.button.MaterialButton
-            android:id="@+id/save_alarm_button"
+        <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="56dp"
-            android:layout_marginTop="24dp"
-            android:backgroundTint="@color/lura_accent"
-            android:text="@string/save_alarm"
-            android:textColor="@color/lura_background"
-            android:textSize="16sp"
-            android:textStyle="bold"
-            app:cornerRadius="8dp" />
+            android:layout_marginTop="14dp"
+            android:gravity="center"
+            android:orientation="horizontal">
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/cancel_alarm_button"
+                style="@style/Widget.MaterialComponents.Button.TextButton"
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_weight="1"
+                android:text="@string/cancel_alarm"
+                android:textColor="@color/lura_text_primary"
+                android:textSize="16sp"
+                android:textStyle="bold"
+                app:cornerRadius="8dp" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/save_alarm_button"
+                style="@style/Widget.MaterialComponents.Button.TextButton"
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_weight="1"
+                android:text="@string/save_alarm_short"
+                android:textColor="@color/lura_text_primary"
+                android:textSize="16sp"
+                android:textStyle="bold"
+                app:cornerRadius="8dp" />
+        </LinearLayout>
     </LinearLayout>
 </androidx.core.widget.NestedScrollView>

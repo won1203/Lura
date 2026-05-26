@@ -10,10 +10,12 @@ import android.widget.Toast
 import androidx.appcompat.app.AlertDialog
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.lifecycleScope
+import androidx.navigation.fragment.findNavController
 import com.example.lura.alarm.AlarmScheduler
 import com.example.lura.data.AlarmRepository
 import com.example.lura.data.AlarmRepositoryProvider
 import com.example.lura.data.AlarmSchedule
+import com.example.lura.data.AlarmTargetTimeCalculator
 import com.example.lura.data.DisableAlarmAndCancelSleepSession
 import com.example.lura.data.DisableAlarmAndCancelSleepSessionProvider
 import com.example.lura.data.StartSleepSessionForAlarm
@@ -29,6 +31,10 @@ import com.google.android.material.switchmaterial.SwitchMaterial
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
+import java.util.concurrent.TimeUnit
 
 class AlarmHistoryFragment : Fragment() {
 
@@ -44,6 +50,8 @@ class AlarmHistoryFragment : Fragment() {
         DisableAlarmAndCancelSleepSessionProvider.get(requireContext().applicationContext)
     }
     private val soundRepository = SoundRepositoryProvider.get()
+    private val alarmTargetTimeCalculator = AlarmTargetTimeCalculator()
+    private val nextAlarmDateFormat = SimpleDateFormat("M월 d일 (E) a h:mm", Locale.KOREAN)
 
     override fun onCreateView(
         inflater: LayoutInflater,
@@ -56,11 +64,15 @@ class AlarmHistoryFragment : Fragment() {
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
+        binding.addAlarmButton.setOnClickListener {
+            findNavController().navigate(R.id.alarmSetupFragment)
+        }
         renderAlarms(alarmRepository.getAlarms())
         showNoticeIfPresent()
     }
 
     private fun renderAlarms(alarms: List<AlarmSchedule>) {
+        renderNextAlarmSummary(alarms)
         binding.alarmList.removeAllViews()
         binding.emptyAlarmMessage.visibility = if (alarms.isEmpty()) View.VISIBLE else View.GONE
 
@@ -77,17 +89,17 @@ class AlarmHistoryFragment : Fragment() {
     }
 
     private fun bindAlarmItem(itemView: View, alarm: AlarmSchedule) {
+        itemView.alpha = if (alarm.isEnabled) ENABLED_ALARM_ALPHA else DISABLED_ALARM_ALPHA
+        itemView.findViewById<TextView>(R.id.alarm_time_period).text =
+            getString(if (alarm.hour < NOON_HOUR) R.string.time_period_am else R.string.time_period_pm)
         itemView.findViewById<TextView>(R.id.alarm_time).text =
-            getString(R.string.alarm_time_format, alarm.hour, alarm.minute)
+            getString(R.string.alarm_time_display_format, displayHour(alarm.hour), alarm.minute)
         itemView.findViewById<TextView>(R.id.alarm_category).text = alarm.categoryName
         itemView.findViewById<TextView>(R.id.alarm_sleep_start_time).text =
             getString(R.string.sleep_start_time_format, alarm.sleepStartHour, alarm.sleepStartMinute)
         itemView.findViewById<TextView>(R.id.alarm_sound_title).text = alarm.soundTitle
         itemView.findViewById<TextView>(R.id.alarm_repeat_days).text =
-            getString(
-                R.string.alarm_repeat_days_format,
-                AlarmWeekdayFormatter.summary(requireContext(), alarm.weekdays)
-            )
+            AlarmWeekdayFormatter.summary(requireContext(), alarm.weekdays)
         itemView.findViewById<TextView>(R.id.alarm_status).text = getStatusText(alarm.isEnabled)
 
         val enabledSwitch = itemView.findViewById<SwitchMaterial>(R.id.alarm_enabled_switch)
@@ -99,6 +111,48 @@ class AlarmHistoryFragment : Fragment() {
         itemView.findViewById<MaterialButton>(R.id.delete_alarm_button).setOnClickListener {
             showDeleteAlarmDialog(alarm)
         }
+    }
+
+    private fun renderNextAlarmSummary(alarms: List<AlarmSchedule>) {
+        val nowEpochMillis = System.currentTimeMillis()
+        val nextAlarmEpochMillis = alarms.asSequence()
+            .filter { it.isEnabled && it.weekdays.isNotEmpty() }
+            .mapNotNull { alarm ->
+                runCatching {
+                    alarmTargetTimeCalculator.nextTargetEpochMillis(
+                        hour = alarm.hour,
+                        minute = alarm.minute,
+                        weekdays = alarm.weekdays,
+                        nowEpochMillis = nowEpochMillis
+                    )
+                }.getOrNull()
+            }
+            .minOrNull()
+
+        if (nextAlarmEpochMillis == null) {
+            binding.nextAlarmTitle.text = getString(R.string.next_alarm_none_title)
+            binding.nextAlarmDatetime.text = getString(R.string.next_alarm_none_subtitle)
+            return
+        }
+
+        val remainingMinutes = TimeUnit.MILLISECONDS.toMinutes(
+            (nextAlarmEpochMillis - nowEpochMillis).coerceAtLeast(MINUTE_IN_MILLIS - 1) +
+                (MINUTE_IN_MILLIS - 1)
+        )
+        val hours = remainingMinutes / MINUTES_PER_HOUR
+        val minutes = remainingMinutes % MINUTES_PER_HOUR
+        binding.nextAlarmTitle.text =
+            if (hours > 0) {
+                getString(R.string.next_alarm_countdown_format, hours, minutes)
+            } else {
+                getString(R.string.next_alarm_countdown_minutes_format, minutes)
+            }
+        binding.nextAlarmDatetime.text = nextAlarmDateFormat.format(Date(nextAlarmEpochMillis))
+    }
+
+    private fun displayHour(hour: Int): Int {
+        val hourInTwelveHourClock = hour % NOON_HOUR
+        return if (hourInTwelveHourClock == 0) NOON_HOUR else hourInTwelveHourClock
     }
 
     private fun createAlarmToggleListener(alarm: AlarmSchedule): CompoundButton.OnCheckedChangeListener =
@@ -309,5 +363,10 @@ class AlarmHistoryFragment : Fragment() {
 
     companion object {
         const val ARG_NOTICE_MESSAGE = "noticeMessage"
+        private const val NOON_HOUR = 12
+        private const val MINUTES_PER_HOUR = 60
+        private const val MINUTE_IN_MILLIS = 60_000L
+        private const val ENABLED_ALARM_ALPHA = 1f
+        private const val DISABLED_ALARM_ALPHA = 0.48f
     }
 }

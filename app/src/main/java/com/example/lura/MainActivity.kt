@@ -4,7 +4,7 @@ import android.Manifest
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
-import android.view.MenuItem
+import android.view.View
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
@@ -13,7 +13,6 @@ import androidx.navigation.NavOptions
 import androidx.navigation.findNavController
 import com.example.lura.alarm.AlarmAppVisibility
 import com.example.lura.databinding.ActivityMainBinding
-import com.google.android.material.bottomnavigation.BottomNavigationView
 
 class MainActivity : AppCompatActivity() {
 
@@ -41,31 +40,32 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun setupBottomNavigation(navController: NavController) {
-        val bottomNavigation = findViewById<BottomNavigationView>(R.id.bottom_navigation)
-        bottomNavigation.setOnItemSelectedListener { item ->
-            navigateBottomTab(navController, item)
-        }
-        bottomNavigation.setOnItemReselectedListener {
-            // Keeping reselection idempotent preserves user-entered alarm settings.
+        val bottomNavigation = findViewById<View>(R.id.bottom_navigation)
+        BOTTOM_TAB_IDS.forEach { itemId ->
+            bottomNavigation.findViewById<View>(itemId).setOnClickListener {
+                navigateBottomTab(navController, itemId)
+            }
         }
         navController.addOnDestinationChangedListener { _, destination, _ ->
-            bottomNavigation.menu.findItem(destination.id)?.isChecked = true
+            BOTTOM_TAB_IDS.forEach { itemId ->
+                bottomNavigation.findViewById<View>(itemId).isSelected = destination.id == itemId
+            }
         }
     }
 
-    private fun navigateBottomTab(navController: NavController, item: MenuItem): Boolean {
-        if (navController.currentDestination?.id == item.itemId) {
+    private fun navigateBottomTab(navController: NavController, itemId: Int): Boolean {
+        if (navController.currentDestination?.id == itemId) {
             return true
         }
 
-        return when (item.itemId) {
+        return when (itemId) {
             R.id.homeFragment -> {
                 navigateToHomeTab(navController)
                 true
             }
             R.id.alarmSetupFragment,
             R.id.alarmHistoryFragment -> {
-                navController.navigate(item.itemId, null, bottomTabNavOptions())
+                navController.navigate(itemId, null, bottomTabNavOptions())
                 true
             }
             else -> false
@@ -102,6 +102,11 @@ class MainActivity : AppCompatActivity() {
     }
 
     companion object {
+        private val BOTTOM_TAB_IDS = intArrayOf(
+            R.id.homeFragment,
+            R.id.alarmSetupFragment,
+            R.id.alarmHistoryFragment
+        )
         private const val POST_NOTIFICATIONS_REQUEST_CODE = 4101
     }
 }

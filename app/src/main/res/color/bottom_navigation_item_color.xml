@@ -3,5 +3,8 @@
     <item
         android:color="@color/lura_accent"
         android:state_checked="true" />
+    <item
+        android:color="@color/lura_accent"
+        android:state_selected="true" />
     <item android:color="@color/lura_text_secondary" />
 </selector>

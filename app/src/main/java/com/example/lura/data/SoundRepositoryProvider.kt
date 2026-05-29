@@ -9,8 +9,11 @@ object SoundRepositoryProvider {
 
     fun get(): SoundRepository =
         repository ?: synchronized(this) {
-            repository ?: BackendSoundRepository(
-                api = BackendApiProvider.luraBackendApi
+            repository ?: CatalogBackedSoundRepository(
+                catalog = DefaultSoundRepository,
+                remote = BackendSoundRepository(
+                    apis = BackendApiProvider.luraBackendApis
+                )
             ).also { repository = it }
         }
 }

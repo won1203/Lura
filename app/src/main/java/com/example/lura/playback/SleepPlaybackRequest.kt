@@ -48,7 +48,7 @@ data class SleepPlaybackRequest(
         fun from(
             alarmSchedule: AlarmSchedule,
             sleepSession: SleepSession,
-            sourceUri: String = SleepSoundPlaybackCatalog.sourceUriFor(alarmSchedule.soundId)
+            sourceUri: String
         ): SleepPlaybackRequest =
             SleepPlaybackRequest(
                 sessionId = sleepSession.sessionId,

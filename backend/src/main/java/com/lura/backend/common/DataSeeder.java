@@ -59,7 +59,7 @@ public class DataSeeder {
                     "포근함"
             );
 
-            createRandomSoundSlotIfMissing(
+            upsertRandomSoundSlot(
                     soundRepository,
                     "random-rain",
                     rain,
@@ -69,7 +69,7 @@ public class DataSeeder {
                     "sounds/rain/"
             );
 
-            createRandomSoundSlotIfMissing(
+            upsertRandomSoundSlot(
                     soundRepository,
                     "random-water",
                     water,
@@ -79,7 +79,7 @@ public class DataSeeder {
                     "sounds/water/"
             );
 
-            createRandomSoundSlotIfMissing(
+            upsertRandomSoundSlot(
                     soundRepository,
                     "random-wind",
                     wind,
@@ -89,7 +89,7 @@ public class DataSeeder {
                     "sounds/wind/"
             );
 
-            createRandomSoundSlotIfMissing(
+            upsertRandomSoundSlot(
                     soundRepository,
                     "random-bird-sound",
                     birdSound,
@@ -99,7 +99,7 @@ public class DataSeeder {
                     "sounds/bird_sound/"
             );
 
-            createRandomSoundSlotIfMissing(
+            upsertRandomSoundSlot(
                     soundRepository,
                     "random-firewood",
                     firewood,
@@ -124,7 +124,7 @@ public class DataSeeder {
                 ));
     }
 
-    private void createRandomSoundSlotIfMissing(
+    private void upsertRandomSoundSlot(
             SoundRepository soundRepository,
             String id,
             SoundCategory category,
@@ -133,10 +133,6 @@ public class DataSeeder {
             int durationMinutes,
             String s3Prefix
     ) {
-        if (soundRepository.existsById(id)) {
-            return;
-        }
-
         soundRepository.save(new Sound(
                 id,
                 category,

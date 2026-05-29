@@ -2,6 +2,7 @@ package com.example.lura
 
 import android.graphics.Typeface
 import android.os.Bundle
+import android.util.Log
 import android.util.TypedValue
 import android.view.Gravity
 import android.view.LayoutInflater
@@ -177,18 +178,10 @@ class AlarmSetupFragment : Fragment() {
             return
         }
 
-        val playbackSource = runCatching {
-            soundRepository.getPlaybackSource(recommendedSound.id)
-        }.getOrElse {
-            Toast.makeText(requireContext(), R.string.alarm_setup_load_failed, Toast.LENGTH_SHORT).show()
-            return
-        }
-        val fixedSound = recommendedSound.copy(objectKey = playbackSource.objectKey)
-
         val result = withContext(Dispatchers.IO) {
             saveAlarmAndStartSleepSession.execute(
                 category = category,
-                sound = fixedSound,
+                sound = recommendedSound.copy(objectKey = ""),
                 sleepStartHour = sleepStartHour,
                 sleepStartMinute = sleepStartMinute,
                 hour = hour,
@@ -197,6 +190,38 @@ class AlarmSetupFragment : Fragment() {
                 startImmediately = startImmediatelyOnSave
             )
         }
+
+        val playbackSource = if (result.sleepSession == null) {
+            null
+        } else {
+            runCatching {
+                soundRepository.getPlaybackSource(
+                    soundId = result.alarmSchedule.soundId,
+                    objectKey = result.alarmSchedule.soundObjectKey.ifBlank { null }
+                )
+            }.onSuccess { source ->
+                if (source.objectKey.isNotBlank()) {
+                    withContext(Dispatchers.IO) {
+                        alarmRepository.updateAlarmSoundObjectKey(result.alarmSchedule.id, source.objectKey)
+                    }
+                }
+            }.getOrElse { error ->
+                Log.e(TAG, "Failed to load playback source while saving alarm.", error)
+                withContext(Dispatchers.IO) {
+                    disableAlarmAndCancelSleepSession.execute(result.alarmSchedule.id)
+                }
+                Toast.makeText(requireContext(), R.string.alarm_playback_source_load_failed, Toast.LENGTH_LONG).show()
+                findNavController().navigate(
+                    R.id.action_alarmSetupFragment_to_alarmHistoryFragment,
+                    bundleOf(
+                        AlarmHistoryFragment.ARG_NOTICE_MESSAGE to
+                            getString(R.string.alarm_saved_playback_source_failed_notice)
+                    )
+                )
+                return
+            }
+        }
+
         AlarmScheduler.cancelAll(requireContext(), alarmRepository.getAlarms())
         val schedulePlan = AlarmScheduler.schedule(
             context = requireContext(),
@@ -211,10 +236,16 @@ class AlarmSetupFragment : Fragment() {
             return
         }
         result.sleepSession?.let { sleepSession ->
+            val sourceUri = playbackSource?.sourceUri
+            if (sourceUri.isNullOrBlank()) {
+                Log.e(TAG, "Sleep session was created without a playback source URI.")
+                Toast.makeText(requireContext(), R.string.alarm_playback_source_load_failed, Toast.LENGTH_LONG).show()
+                return
+            }
             val playbackRequest = SleepPlaybackRequest.from(
                 alarmSchedule = result.alarmSchedule,
                 sleepSession = sleepSession,
-                sourceUri = playbackSource.sourceUri
+                sourceUri = sourceUri
             )
             SleepPlaybackController.start(requireContext(), playbackRequest)
         }
@@ -478,6 +509,7 @@ class AlarmSetupFragment : Fragment() {
 
     companion object {
         const val ARG_CATEGORY_ID = "categoryId"
+        private const val TAG = "AlarmSetupFragment"
         private const val NOON_HOUR = 12
         private const val DEFAULT_SLEEP_START_HOUR = 23
         private const val DEFAULT_SLEEP_START_MINUTE = 0

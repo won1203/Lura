@@ -84,7 +84,7 @@ public class SoundService {
 
     private void validateObjectKeyBelongsToSound(Sound sound, String objectKey) {
         if (!objectKey.startsWith(sound.getS3Prefix())
-                || !s3RandomSoundSelector.isPlayableAudioObjectKey(objectKey)) {
+                || !s3RandomSoundSelector.isExistingPlayableAudioObjectKey(objectKey)) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid playback object key");
         }
     }

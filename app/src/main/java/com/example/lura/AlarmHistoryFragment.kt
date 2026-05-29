@@ -1,6 +1,7 @@
 package com.example.lura
 
 import android.os.Bundle
+import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -202,6 +203,7 @@ class AlarmHistoryFragment : Fragment() {
             val playbackSource = runCatching {
                 soundRepository.getPlaybackSource(recommendedSound.id)
             }.getOrElse {
+                Log.e(TAG, "Failed to load playback source while updating alarm category.", it)
                 Toast.makeText(requireContext(), R.string.alarm_setup_load_failed, Toast.LENGTH_SHORT).show()
                 return@launch
             }
@@ -257,6 +259,7 @@ class AlarmHistoryFragment : Fragment() {
                     objectKey = alarm.soundObjectKey.ifBlank { null }
                 )
             }.getOrElse {
+                Log.e(TAG, "Failed to load playback source while enabling alarm.", it)
                 Toast.makeText(requireContext(), R.string.alarm_setup_load_failed, Toast.LENGTH_SHORT).show()
                 renderAlarms(alarmRepository.getAlarms())
                 return@launch
@@ -289,7 +292,10 @@ class AlarmHistoryFragment : Fragment() {
                 renderAlarms(alarmRepository.getAlarms())
                 return@launch
             }
-            if (alarm.soundObjectKey.isBlank() && playbackSource.objectKey.isNotBlank()) {
+            if (
+                playbackSource.objectKey.isNotBlank() &&
+                playbackSource.objectKey != alarm.soundObjectKey
+            ) {
                 withContext(Dispatchers.IO) {
                     alarmRepository.updateAlarmSoundObjectKey(alarm.id, playbackSource.objectKey)
                 }
@@ -363,6 +369,7 @@ class AlarmHistoryFragment : Fragment() {
 
     companion object {
         const val ARG_NOTICE_MESSAGE = "noticeMessage"
+        private const val TAG = "AlarmHistoryFragment"
         private const val NOON_HOUR = 12
         private const val MINUTES_PER_HOUR = 60
         private const val MINUTE_IN_MILLIS = 60_000L

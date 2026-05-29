@@ -32,9 +32,18 @@ class AlarmEventReceiver : BroadcastReceiver() {
             context = context,
             alarmId = intent.getStringExtra(AlarmRingingService.EXTRA_ALARM_ID).orEmpty(),
             alarmTitle = intent.getStringExtra(AlarmRingingService.EXTRA_ALARM_TITLE).orEmpty(),
-            showRingingScreen = AlarmAppVisibility.isForeground
+            showRingingScreen = true,
+            alarmHour = intent.optionalIntExtra(AlarmRingingService.EXTRA_ALARM_HOUR),
+            alarmMinute = intent.optionalIntExtra(AlarmRingingService.EXTRA_ALARM_MINUTE),
+            triggerAtEpochMillis = intent.getLongExtra(
+                AlarmRingingService.EXTRA_ALARM_TRIGGER_AT_EPOCH_MILLIS,
+                0L
+            )
         )
     }
+
+    private fun Intent.optionalIntExtra(name: String): Int? =
+        if (hasExtra(name)) getIntExtra(name, 0) else null
 
     companion object {
         const val ACTION_ALARM_EVENT = "com.example.lura.alarm.action.EVENT"

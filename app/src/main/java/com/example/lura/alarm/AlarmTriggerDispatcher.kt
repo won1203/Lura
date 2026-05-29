@@ -2,6 +2,7 @@ package com.example.lura.alarm
 
 import android.content.Context
 import android.content.Intent
+import android.util.Log
 import androidx.core.content.ContextCompat
 
 object AlarmTriggerDispatcher {
@@ -9,37 +10,67 @@ object AlarmTriggerDispatcher {
         context: Context,
         alarmId: String,
         alarmTitle: String,
-        showRingingScreen: Boolean
+        showRingingScreen: Boolean,
+        alarmHour: Int? = null,
+        alarmMinute: Int? = null,
+        triggerAtEpochMillis: Long = 0L
     ) {
         val appContext = context.applicationContext
         val normalizedTitle = alarmTitle.ifBlank { null }
 
-        ContextCompat.startForegroundService(
-            appContext,
-            Intent(appContext, AlarmRingingService::class.java)
-                .setAction(AlarmRingingService.ACTION_START)
-                .putExtra(AlarmRingingService.EXTRA_ALARM_ID, alarmId)
-                .putExtra(AlarmRingingService.EXTRA_ALARM_TITLE, normalizedTitle)
+        AlarmRingingState.markRinging(
+            context = appContext,
+            alarmId = alarmId,
+            triggerAtEpochMillis = triggerAtEpochMillis
         )
+
+        val serviceIntent = Intent(appContext, AlarmRingingService::class.java)
+            .setAction(AlarmRingingService.ACTION_START)
+            .putExtra(AlarmRingingService.EXTRA_ALARM_ID, alarmId)
+            .putExtra(AlarmRingingService.EXTRA_ALARM_TITLE, normalizedTitle)
+            .putExtra(AlarmRingingService.EXTRA_ALARM_TRIGGER_AT_EPOCH_MILLIS, triggerAtEpochMillis)
+        alarmHour?.let { serviceIntent.putExtra(AlarmRingingService.EXTRA_ALARM_HOUR, it) }
+        alarmMinute?.let { serviceIntent.putExtra(AlarmRingingService.EXTRA_ALARM_MINUTE, it) }
+
+        ContextCompat.startForegroundService(appContext, serviceIntent)
         AlarmRescheduler.rescheduleNext(appContext, alarmId)
 
         if (showRingingScreen) {
-            showRingingActivity(appContext, alarmId, normalizedTitle.orEmpty())
+            showRingingActivity(
+                context = appContext,
+                alarmId = alarmId,
+                alarmTitle = normalizedTitle.orEmpty(),
+                alarmHour = alarmHour,
+                alarmMinute = alarmMinute,
+                triggerAtEpochMillis = triggerAtEpochMillis
+            )
         }
     }
 
     fun showRingingActivity(
         context: Context,
         alarmId: String,
-        alarmTitle: String
+        alarmTitle: String,
+        alarmHour: Int? = null,
+        alarmMinute: Int? = null,
+        triggerAtEpochMillis: Long = 0L
     ) {
         val appContext = context.applicationContext
-        appContext.startActivity(
-            Intent(appContext, AlarmRingingActivity::class.java)
-                .setAction(AlarmRingingActivity.ACTION_SHOW)
-                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
-                .putExtra(AlarmRingingService.EXTRA_ALARM_ID, alarmId)
-                .putExtra(AlarmRingingService.EXTRA_ALARM_TITLE, alarmTitle)
-        )
+        val intent = Intent(appContext, AlarmRingingActivity::class.java)
+            .setAction(AlarmRingingActivity.ACTION_SHOW)
+            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
+            .putExtra(AlarmRingingService.EXTRA_ALARM_ID, alarmId)
+            .putExtra(AlarmRingingService.EXTRA_ALARM_TITLE, alarmTitle)
+            .putExtra(AlarmRingingService.EXTRA_ALARM_TRIGGER_AT_EPOCH_MILLIS, triggerAtEpochMillis)
+        alarmHour?.let { intent.putExtra(AlarmRingingService.EXTRA_ALARM_HOUR, it) }
+        alarmMinute?.let { intent.putExtra(AlarmRingingService.EXTRA_ALARM_MINUTE, it) }
+
+        runCatching {
+            appContext.startActivity(intent)
+        }.onFailure { error ->
+            Log.e(TAG, "Failed to show alarm ringing screen.", error)
+        }
     }
+
+    private const val TAG = "AlarmTriggerDispatcher"
 }

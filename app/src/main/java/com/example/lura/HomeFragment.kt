@@ -6,7 +6,6 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.ImageView
 import android.widget.TextView
-import androidx.annotation.DrawableRes
 import androidx.core.os.bundleOf
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.lifecycleScope
@@ -57,7 +56,7 @@ class HomeFragment : Fragment() {
             )
 
             itemView.findViewById<ImageView>(R.id.category_background_image)
-                .setImageResource(categoryBackgroundRes(category.id))
+                .setImageResource(SoundCategoryArtwork.backgroundFor(category.id))
             itemView.findViewById<TextView>(R.id.category_name).text = category.name
             itemView.findViewById<TextView>(R.id.category_description).text = category.description
             itemView.findViewById<TextView>(R.id.category_mood).text = category.mood
@@ -70,17 +69,6 @@ class HomeFragment : Fragment() {
             binding.categoryList.addView(itemView)
         }
     }
-
-    @DrawableRes
-    private fun categoryBackgroundRes(categoryId: String): Int =
-        when (categoryId) {
-            "rain" -> R.drawable.rain
-            "water" -> R.drawable.water
-            "wind" -> R.drawable.wind
-            "bird_sound" -> R.drawable.bird
-            "firewood" -> R.drawable.fire
-            else -> R.drawable.water
-        }
 
     override fun onDestroyView() {
         super.onDestroyView()

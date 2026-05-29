@@ -58,11 +58,14 @@ object AlarmScheduler {
             sleepStartScheduled = true
         }
 
+        cancelWakeBroadcastOperation(appContext, alarmManager, alarm.id)
+        cancelWakeActivityOperation(appContext, alarmManager, alarm.id)
         val wakeOperation = createAlarmOperation(
             context = appContext,
             alarm = alarm,
             eventType = AlarmEventType.WAKE_ALARM,
-            pendingIntentFlag = PendingIntent.FLAG_UPDATE_CURRENT
+            pendingIntentFlag = PendingIntent.FLAG_UPDATE_CURRENT,
+            triggerAtEpochMillis = sleepWindow.wakeAtEpochMillis
         )
         val wakeSuccess = runCatching {
             alarmManager.setAlarmClock(
@@ -95,10 +98,26 @@ object AlarmScheduler {
                 alarmId = alarmId,
                 eventType = eventType,
                 pendingIntentFlag = PendingIntent.FLAG_NO_CREATE
-            ) ?: return@forEach
+            )
+            operation?.let {
+                alarmManager.cancel(it)
+                it.cancel()
+            }
+            if (eventType == AlarmEventType.WAKE_ALARM) {
+                cancelWakeActivityOperation(appContext, alarmManager, alarmId)
+            }
+        }
+        createSnoozeOperation(
+            context = appContext,
+            alarmId = alarmId,
+            alarmTitle = "",
+            triggerAtEpochMillis = 0L,
+            pendingIntentFlag = PendingIntent.FLAG_NO_CREATE
+        )?.let { operation ->
             alarmManager.cancel(operation)
             operation.cancel()
         }
+        cancelLegacySnoozeBroadcastOperation(appContext, alarmManager, alarmId)
     }
 
     fun cancelAll(context: Context, alarms: List<AlarmSchedule>) {
@@ -147,18 +166,197 @@ object AlarmScheduler {
         eventType: AlarmEventType,
         pendingIntentFlag: Int,
         alarmTitle: String = ""
+    ): PendingIntent? =
+        createBroadcastAlarmOperation(
+            context = context,
+            alarmId = alarmId,
+            eventType = eventType,
+            pendingIntentFlag = pendingIntentFlag,
+            alarmTitle = alarmTitle
+        )
+
+    private fun createBroadcastAlarmOperation(
+        context: Context,
+        alarmId: String,
+        eventType: AlarmEventType,
+        pendingIntentFlag: Int,
+        alarmTitle: String = "",
+        triggerAtEpochMillis: Long = 0L,
+        alarmHour: Int? = null,
+        alarmMinute: Int? = null,
+        requestCodeOverride: Int? = null
     ): PendingIntent? {
         val intent = Intent(context, AlarmEventReceiver::class.java)
             .setAction(AlarmEventReceiver.ACTION_ALARM_EVENT)
             .putExtra(AlarmEventReceiver.EXTRA_EVENT_TYPE, eventType.name)
             .putExtra(AlarmRingingService.EXTRA_ALARM_ID, alarmId)
             .putExtra(AlarmRingingService.EXTRA_ALARM_TITLE, alarmTitle)
+            .putExtra(AlarmRingingService.EXTRA_ALARM_TRIGGER_AT_EPOCH_MILLIS, triggerAtEpochMillis)
+        alarmHour?.let { intent.putExtra(AlarmRingingService.EXTRA_ALARM_HOUR, it) }
+        alarmMinute?.let { intent.putExtra(AlarmRingingService.EXTRA_ALARM_MINUTE, it) }
 
         return PendingIntent.getBroadcast(
             context,
-            stableRequestCode(alarmId, eventType),
+            requestCodeOverride ?: stableRequestCode(alarmId, eventType),
             intent,
             PendingIntent.FLAG_IMMUTABLE or pendingIntentFlag
+        )
+    }
+
+    private fun cancelWakeBroadcastOperation(
+        context: Context,
+        alarmManager: AlarmManager,
+        alarmId: String
+    ) {
+        createBroadcastAlarmOperation(
+            context = context,
+            alarmId = alarmId,
+            eventType = AlarmEventType.WAKE_ALARM,
+            pendingIntentFlag = PendingIntent.FLAG_NO_CREATE
+        )?.let { operation ->
+            alarmManager.cancel(operation)
+            operation.cancel()
+        }
+    }
+
+    private fun cancelWakeActivityOperation(
+        context: Context,
+        alarmManager: AlarmManager,
+        alarmId: String
+    ) {
+        createWakeActivityOperation(
+            context = context,
+            alarmId = alarmId,
+            alarmTitle = "",
+            triggerAtEpochMillis = 0L,
+            alarmHour = null,
+            alarmMinute = null,
+            requestCode = stableRequestCode(alarmId, AlarmEventType.WAKE_ALARM),
+            pendingIntentFlag = PendingIntent.FLAG_NO_CREATE
+        )?.let { operation ->
+            alarmManager.cancel(operation)
+            operation.cancel()
+        }
+    }
+
+    private fun createAlarmOperation(
+        context: Context,
+        alarm: AlarmSchedule,
+        eventType: AlarmEventType,
+        pendingIntentFlag: Int,
+        triggerAtEpochMillis: Long
+    ): PendingIntent =
+        if (eventType == AlarmEventType.WAKE_ALARM) {
+            requireNotNull(
+                createWakeActivityOperation(
+                    context = context,
+                    alarmId = alarm.id,
+                    alarmTitle = alarm.soundTitle,
+                    triggerAtEpochMillis = triggerAtEpochMillis,
+                    alarmHour = alarm.hour,
+                    alarmMinute = alarm.minute,
+                    requestCode = stableRequestCode(alarm.id, eventType),
+                    pendingIntentFlag = pendingIntentFlag
+                )
+            )
+        } else {
+            createAlarmOperation(
+                context = context,
+                alarm = alarm,
+                eventType = eventType,
+                pendingIntentFlag = pendingIntentFlag
+            )
+        }
+
+    fun scheduleSnooze(
+        context: Context,
+        alarmId: String,
+        alarmTitle: String,
+        triggerAtEpochMillis: Long
+    ) {
+        val appContext = context.applicationContext
+        val alarmManager = appContext.getSystemService(Context.ALARM_SERVICE) as AlarmManager
+        val calendar = java.util.Calendar.getInstance().apply {
+            timeInMillis = triggerAtEpochMillis
+        }
+        val operation = createSnoozeOperation(
+            context = appContext,
+            alarmId = alarmId,
+            alarmTitle = alarmTitle,
+            triggerAtEpochMillis = triggerAtEpochMillis,
+            pendingIntentFlag = PendingIntent.FLAG_UPDATE_CURRENT,
+            alarmHour = calendar.get(java.util.Calendar.HOUR_OF_DAY),
+            alarmMinute = calendar.get(java.util.Calendar.MINUTE)
+        ) ?: return
+
+        alarmManager.setAlarmClock(
+            AlarmManager.AlarmClockInfo(triggerAtEpochMillis, createShowIntent(appContext)),
+            operation
+        )
+    }
+
+    private fun createSnoozeOperation(
+        context: Context,
+        alarmId: String,
+        alarmTitle: String,
+        triggerAtEpochMillis: Long,
+        pendingIntentFlag: Int,
+        alarmHour: Int? = null,
+        alarmMinute: Int? = null
+    ): PendingIntent? =
+        createWakeActivityOperation(
+            context = context,
+            alarmId = alarmId,
+            alarmTitle = alarmTitle,
+            triggerAtEpochMillis = triggerAtEpochMillis,
+            alarmHour = alarmHour,
+            alarmMinute = alarmMinute,
+            requestCode = stableSnoozeRequestCode(alarmId),
+            pendingIntentFlag = pendingIntentFlag
+        )
+
+    private fun cancelLegacySnoozeBroadcastOperation(
+        context: Context,
+        alarmManager: AlarmManager,
+        alarmId: String
+    ) {
+        createBroadcastAlarmOperation(
+            context = context,
+            alarmId = alarmId,
+            eventType = AlarmEventType.WAKE_ALARM,
+            pendingIntentFlag = PendingIntent.FLAG_NO_CREATE,
+            requestCodeOverride = stableSnoozeRequestCode(alarmId)
+        )?.let { operation ->
+            alarmManager.cancel(operation)
+            operation.cancel()
+        }
+    }
+
+    private fun createWakeActivityOperation(
+        context: Context,
+        alarmId: String,
+        alarmTitle: String,
+        triggerAtEpochMillis: Long,
+        alarmHour: Int?,
+        alarmMinute: Int?,
+        requestCode: Int,
+        pendingIntentFlag: Int
+    ): PendingIntent? {
+        val intent = Intent(context, AlarmRingingActivity::class.java)
+            .setAction(AlarmRingingActivity.ACTION_TRIGGER)
+            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
+            .putExtra(AlarmRingingService.EXTRA_ALARM_ID, alarmId)
+            .putExtra(AlarmRingingService.EXTRA_ALARM_TITLE, alarmTitle)
+            .putExtra(AlarmRingingService.EXTRA_ALARM_TRIGGER_AT_EPOCH_MILLIS, triggerAtEpochMillis)
+        alarmHour?.let { intent.putExtra(AlarmRingingService.EXTRA_ALARM_HOUR, it) }
+        alarmMinute?.let { intent.putExtra(AlarmRingingService.EXTRA_ALARM_MINUTE, it) }
+
+        return PendingIntent.getActivity(
+            context,
+            requestCode,
+            intent,
+            PendingIntent.FLAG_IMMUTABLE or pendingIntentFlag,
+            AlarmActivityPendingIntentOptions.bundle()
         )
     }
 
@@ -174,10 +372,27 @@ object AlarmScheduler {
         )
     }
 
+    private fun createShowIntent(context: Context): PendingIntent {
+        val intent = Intent(context, MainActivity::class.java)
+            .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
+
+        return PendingIntent.getActivity(
+            context,
+            SNOOZE_SHOW_REQUEST_CODE,
+            intent,
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+        )
+    }
+
     private fun stableRequestCode(alarmId: String, eventType: AlarmEventType): Int =
         (alarmId.hashCode() * REQUEST_CODE_MULTIPLIER) + eventType.ordinal
 
+    private fun stableSnoozeRequestCode(alarmId: String): Int =
+        (alarmId.hashCode() * REQUEST_CODE_MULTIPLIER) + SNOOZE_REQUEST_CODE_OFFSET
+
     private val alarmTargetTimeCalculator = AlarmTargetTimeCalculator()
     private const val REQUEST_CODE_MULTIPLIER = 31
+    private const val SNOOZE_REQUEST_CODE_OFFSET = 10_000
+    private const val SNOOZE_SHOW_REQUEST_CODE = 10_001
     private const val TAG = "AlarmScheduler"
 }

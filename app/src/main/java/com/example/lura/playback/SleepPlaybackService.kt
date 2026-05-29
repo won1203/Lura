@@ -181,7 +181,10 @@ class SleepPlaybackService : MediaSessionService() {
                         objectKey = result.alarmSchedule.soundObjectKey.ifBlank { null }
                     )
 
-                    if (result.alarmSchedule.soundObjectKey.isBlank() && playbackSource.objectKey.isNotBlank()) {
+                    if (
+                        playbackSource.objectKey.isNotBlank() &&
+                        playbackSource.objectKey != result.alarmSchedule.soundObjectKey
+                    ) {
                         AlarmRepositoryProvider.get(applicationContext)
                             .updateAlarmSoundObjectKey(alarmId, playbackSource.objectKey)
                     }

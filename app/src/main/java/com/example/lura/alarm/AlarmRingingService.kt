@@ -54,8 +54,16 @@ class AlarmRingingService : Service() {
         val alarmTitle = intent.getStringExtra(EXTRA_ALARM_TITLE)
             ?.takeIf(String::isNotBlank)
             ?: getString(R.string.alarm_ringing_default_title)
+        val alarmHour = intent.optionalIntExtra(EXTRA_ALARM_HOUR)
+        val alarmMinute = intent.optionalIntExtra(EXTRA_ALARM_MINUTE)
+        val triggerAtEpochMillis = intent.getLongExtra(EXTRA_ALARM_TRIGGER_AT_EPOCH_MILLIS, 0L)
 
-        promoteToForeground(alarmId, alarmTitle)
+        AlarmRingingState.markRinging(
+            context = this,
+            alarmId = alarmId,
+            triggerAtEpochMillis = triggerAtEpochMillis
+        )
+        promoteToForeground(alarmId, alarmTitle, alarmHour, alarmMinute, triggerAtEpochMillis)
         SleepPlaybackController.fadeOutAndComplete(this)
 
         clearCallbacks()
@@ -96,6 +104,11 @@ class AlarmRingingService : Service() {
     private fun stopAlarm() {
         clearCallbacks()
         releasePlayer()
+        AlarmRingingState.markStopped(this)
+        sendBroadcast(
+            Intent(ACTION_ALARM_STOPPED)
+                .setPackage(packageName)
+        )
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
             stopForeground(STOP_FOREGROUND_REMOVE)
         } else {
@@ -146,9 +159,21 @@ class AlarmRingingService : Service() {
         toneGenerator = null
     }
 
-    private fun promoteToForeground(alarmId: String, alarmTitle: String) {
+    private fun promoteToForeground(
+        alarmId: String,
+        alarmTitle: String,
+        alarmHour: Int?,
+        alarmMinute: Int?,
+        triggerAtEpochMillis: Long
+    ) {
         createNotificationChannel()
-        val notification = buildNotification(alarmId, alarmTitle)
+        val notification = buildNotification(
+            alarmId = alarmId,
+            alarmTitle = alarmTitle,
+            alarmHour = alarmHour,
+            alarmMinute = alarmMinute,
+            triggerAtEpochMillis = triggerAtEpochMillis
+        )
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             startForeground(
                 ALARM_NOTIFICATION_ID,
@@ -160,14 +185,26 @@ class AlarmRingingService : Service() {
         }
     }
 
-    private fun buildNotification(alarmId: String, alarmTitle: String): Notification {
+    private fun buildNotification(
+        alarmId: String,
+        alarmTitle: String,
+        alarmHour: Int?,
+        alarmMinute: Int?,
+        triggerAtEpochMillis: Long
+    ): Notification {
         val builder = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             Notification.Builder(this, ALARM_NOTIFICATION_CHANNEL_ID)
         } else {
             @Suppress("DEPRECATION")
             Notification.Builder(this)
         }
-        val ringingIntent = createRingingActivityIntent(alarmId, alarmTitle)
+        val ringingIntent = createRingingActivityIntent(
+            alarmId = alarmId,
+            alarmTitle = alarmTitle,
+            alarmHour = alarmHour,
+            alarmMinute = alarmMinute,
+            triggerAtEpochMillis = triggerAtEpochMillis
+        )
         val stopAction = Notification.Action.Builder(
             R.drawable.ic_stop_24,
             getString(R.string.alarm_ringing_stop),
@@ -185,6 +222,14 @@ class AlarmRingingService : Service() {
             .setPriority(Notification.PRIORITY_MAX)
             .setOngoing(true)
             .setOnlyAlertOnce(true)
+            .apply {
+                @Suppress("DEPRECATION")
+                setDefaults(0)
+                @Suppress("DEPRECATION")
+                setSound(null)
+                @Suppress("DEPRECATION")
+                setVibrate(null)
+            }
             .addAction(stopAction)
             .build()
     }
@@ -202,23 +247,36 @@ class AlarmRingingService : Service() {
             getString(R.string.alarm_ringing_channel_name),
             NotificationManager.IMPORTANCE_HIGH
         ).apply {
+            setSound(null, null)
+            enableVibration(false)
+            setShowBadge(false)
             description = getString(R.string.alarm_ringing_channel_description)
         }
         notificationManager.createNotificationChannel(channel)
     }
 
-    private fun createRingingActivityIntent(alarmId: String, alarmTitle: String): PendingIntent {
+    private fun createRingingActivityIntent(
+        alarmId: String,
+        alarmTitle: String,
+        alarmHour: Int?,
+        alarmMinute: Int?,
+        triggerAtEpochMillis: Long
+    ): PendingIntent {
         val intent = Intent(this, AlarmRingingActivity::class.java)
             .setAction(AlarmRingingActivity.ACTION_SHOW)
             .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
             .putExtra(EXTRA_ALARM_ID, alarmId)
             .putExtra(EXTRA_ALARM_TITLE, alarmTitle)
+            .putExtra(EXTRA_ALARM_TRIGGER_AT_EPOCH_MILLIS, triggerAtEpochMillis)
+        alarmHour?.let { intent.putExtra(EXTRA_ALARM_HOUR, it) }
+        alarmMinute?.let { intent.putExtra(EXTRA_ALARM_MINUTE, it) }
 
         return PendingIntent.getActivity(
             this,
             ALARM_CONTENT_REQUEST_CODE + alarmId.hashCode(),
             intent,
-            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
+            AlarmActivityPendingIntentOptions.bundle()
         )
     }
 
@@ -238,16 +296,23 @@ class AlarmRingingService : Service() {
             ?: RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION)
             ?: Settings.System.DEFAULT_ALARM_ALERT_URI
 
+    private fun Intent.optionalIntExtra(name: String): Int? =
+        if (hasExtra(name)) getIntExtra(name, 0) else null
+
     companion object {
         const val ACTION_START = "com.example.lura.alarm.action.START"
         const val ACTION_STOP = "com.example.lura.alarm.action.STOP"
+        const val ACTION_ALARM_STOPPED = "com.example.lura.alarm.action.STOPPED"
         const val EXTRA_ALARM_ID = "alarm.extra.ALARM_ID"
         const val EXTRA_ALARM_TITLE = "alarm.extra.ALARM_TITLE"
+        const val EXTRA_ALARM_HOUR = "alarm.extra.ALARM_HOUR"
+        const val EXTRA_ALARM_MINUTE = "alarm.extra.ALARM_MINUTE"
+        const val EXTRA_ALARM_TRIGGER_AT_EPOCH_MILLIS = "alarm.extra.TRIGGER_AT_EPOCH_MILLIS"
 
         private const val ALARM_NOTIFICATION_ID = 3001
         private const val ALARM_CONTENT_REQUEST_CODE = 3002
         private const val ALARM_STOP_REQUEST_CODE = 3003
-        private const val ALARM_NOTIFICATION_CHANNEL_ID = "alarm_ringing"
+        private const val ALARM_NOTIFICATION_CHANNEL_ID = "alarm_ringing_full_screen"
         private const val SLEEP_FADE_OUT_DURATION_MS = 5_000L
         private const val MAX_ALARM_RING_DURATION_MS = 10 * 60 * 1_000L
         private const val FALLBACK_TONE_VOLUME = 100

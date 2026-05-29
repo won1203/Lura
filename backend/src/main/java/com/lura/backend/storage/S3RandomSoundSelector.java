@@ -2,7 +2,10 @@ package com.lura.backend.storage;
 
 import org.springframework.stereotype.Service;
 import software.amazon.awssdk.services.s3.S3Client;
+import software.amazon.awssdk.services.s3.model.HeadObjectRequest;
 import software.amazon.awssdk.services.s3.model.ListObjectsV2Request;
+import software.amazon.awssdk.services.s3.model.NoSuchKeyException;
+import software.amazon.awssdk.services.s3.model.S3Exception;
 import software.amazon.awssdk.services.s3.model.S3Object;
 
 import java.util.List;
@@ -56,6 +59,29 @@ public class S3RandomSoundSelector {
         String lowerCaseObjectKey = objectKey.toLowerCase();
         return !lowerCaseObjectKey.endsWith("/")
                 && SUPPORTED_AUDIO_EXTENSIONS.stream().anyMatch(lowerCaseObjectKey::endsWith);
+    }
+
+    public boolean isExistingPlayableAudioObjectKey(String objectKey) {
+        return isPlayableAudioObjectKey(objectKey) && objectExists(objectKey);
+    }
+
+    private boolean objectExists(String objectKey) {
+        HeadObjectRequest request = HeadObjectRequest.builder()
+                .bucket(properties.bucket())
+                .key(objectKey)
+                .build();
+
+        try {
+            s3Client.headObject(request);
+            return true;
+        } catch (NoSuchKeyException exception) {
+            return false;
+        } catch (S3Exception exception) {
+            if (exception.statusCode() == 404) {
+                return false;
+            }
+            throw exception;
+        }
     }
 
     private String normalizePrefix(String prefix) {

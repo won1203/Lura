@@ -1,8 +1,8 @@
 package com.lura.backend.sound;
 
 import com.lura.backend.category.CategoryRepository;
-import com.lura.backend.storage.S3RandomSoundSelector;
-import com.lura.backend.storage.S3PresignedUrlService;
+import com.lura.core.storage.S3RandomSoundSelector;
+import com.lura.core.storage.S3PresignedUrlService;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;

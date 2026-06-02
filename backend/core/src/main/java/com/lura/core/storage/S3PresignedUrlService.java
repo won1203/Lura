@@ -1,32 +1,30 @@
-package com.lura.backend.storage;
+package com.lura.core.storage;
 
-import org.springframework.stereotype.Service;
 import software.amazon.awssdk.services.s3.model.GetObjectRequest;
 import software.amazon.awssdk.services.s3.presigner.S3Presigner;
 import software.amazon.awssdk.services.s3.presigner.model.GetObjectPresignRequest;
 
-@Service
 public class S3PresignedUrlService {
 
     private final S3Presigner s3Presigner;
-    private final S3Properties properties;
+    private final S3Config config;
 
     public S3PresignedUrlService(
             S3Presigner s3Presigner,
-            S3Properties properties
+            S3Config config
     ) {
         this.s3Presigner = s3Presigner;
-        this.properties = properties;
+        this.config = config;
     }
 
     public String createGetObjectUrl(String objectKey) {
         GetObjectRequest getObjectRequest = GetObjectRequest.builder()
-                .bucket(properties.bucket())
+                .bucket(config.bucket())
                 .key(objectKey)
                 .build();
 
         GetObjectPresignRequest presignRequest = GetObjectPresignRequest.builder()
-                .signatureDuration(properties.presignedUrlDuration())
+                .signatureDuration(config.presignedUrlDuration())
                 .getObjectRequest(getObjectRequest)
                 .build();
 

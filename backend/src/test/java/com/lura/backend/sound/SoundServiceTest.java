@@ -2,8 +2,8 @@ package com.lura.backend.sound;
 
 import com.lura.backend.category.CategoryRepository;
 import com.lura.backend.category.SoundCategory;
-import com.lura.backend.storage.S3PresignedUrlService;
-import com.lura.backend.storage.S3RandomSoundSelector;
+import com.lura.core.storage.S3PresignedUrlService;
+import com.lura.core.storage.S3RandomSoundSelector;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;

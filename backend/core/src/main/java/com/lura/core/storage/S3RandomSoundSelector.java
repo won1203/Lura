@@ -1,6 +1,5 @@
-package com.lura.backend.storage;
+package com.lura.core.storage;
 
-import org.springframework.stereotype.Service;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.HeadObjectRequest;
 import software.amazon.awssdk.services.s3.model.ListObjectsV2Request;
@@ -12,7 +11,6 @@ import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.ThreadLocalRandom;
 
-@Service
 public class S3RandomSoundSelector {
 
     private static final List<String> SUPPORTED_AUDIO_EXTENSIONS = List.of(
@@ -24,19 +22,19 @@ public class S3RandomSoundSelector {
     );
 
     private final S3Client s3Client;
-    private final S3Properties properties;
+    private final S3Config config;
 
     public S3RandomSoundSelector(
             S3Client s3Client,
-            S3Properties properties
+            S3Config config
     ) {
         this.s3Client = s3Client;
-        this.properties = properties;
+        this.config = config;
     }
 
     public Optional<String> selectRandomAudioObjectKey(String prefix) {
         ListObjectsV2Request request = ListObjectsV2Request.builder()
-                .bucket(properties.bucket())
+                .bucket(config.bucket())
                 .prefix(normalizePrefix(prefix))
                 .build();
 
@@ -67,7 +65,7 @@ public class S3RandomSoundSelector {
 
     private boolean objectExists(String objectKey) {
         HeadObjectRequest request = HeadObjectRequest.builder()
-                .bucket(properties.bucket())
+                .bucket(config.bucket())
                 .key(objectKey)
                 .build();
 

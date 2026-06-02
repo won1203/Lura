@@ -4,11 +4,11 @@ import com.lura.backend.category.CategoryRepository;
 import com.lura.backend.category.SoundCategory;
 import com.lura.backend.sound.Sound;
 import com.lura.backend.sound.SoundRepository;
+import com.lura.core.catalog.LuraSoundCatalog;
+import com.lura.core.catalog.SoundCatalogItem;
 import org.springframework.boot.ApplicationRunner;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-
-import java.util.List;
 
 @Configuration
 public class DataSeeder {
@@ -19,127 +19,30 @@ public class DataSeeder {
             SoundRepository soundRepository
     ) {
         return args -> {
-            SoundCategory rain = findOrCreateCategory(
-                    categoryRepository,
-                    "rain",
-                    "빗소리",
-                    "창가에 잔잔히 떨어지는 밤비",
-                    "차분함"
-            );
-
-            SoundCategory water = findOrCreateCategory(
-                    categoryRepository,
-                    "water",
-                    "물소리",
-                    "흐르는 물과 잔잔한 자연의 소리",
-                    "안정감"
-            );
-
-            SoundCategory wind = findOrCreateCategory(
-                    categoryRepository,
-                    "wind",
-                    "바람소리",
-                    "부드럽게 스치는 바람 소리",
-                    "이완"
-            );
-
-            SoundCategory birdSound = findOrCreateCategory(
-                    categoryRepository,
-                    "bird_sound",
-                    "새소리",
-                    "아침 숲에서 들리는 잔잔한 새소리",
-                    "상쾌함"
-            );
-
-            SoundCategory firewood = findOrCreateCategory(
-                    categoryRepository,
-                    "firewood",
-                    "장작소리",
-                    "따뜻하게 타오르는 장작의 잔잔한 소리",
-                    "포근함"
-            );
-
-            upsertRandomSoundSlot(
-                    soundRepository,
-                    "random-rain",
-                    rain,
-                    "랜덤 빗소리",
-                    List.of("수면", "비", "잔잔함"),
-                    60,
-                    "sounds/rain/"
-            );
-
-            upsertRandomSoundSlot(
-                    soundRepository,
-                    "random-water",
-                    water,
-                    "랜덤 물소리",
-                    List.of("수면", "물", "안정감"),
-                    60,
-                    "sounds/water/"
-            );
-
-            upsertRandomSoundSlot(
-                    soundRepository,
-                    "random-wind",
-                    wind,
-                    "랜덤 바람소리",
-                    List.of("수면", "바람", "이완"),
-                    60,
-                    "sounds/wind/"
-            );
-
-            upsertRandomSoundSlot(
-                    soundRepository,
-                    "random-bird-sound",
-                    birdSound,
-                    "랜덤 새소리",
-                    List.of("수면", "새소리", "자연"),
-                    60,
-                    "sounds/bird_sound/"
-            );
-
-            upsertRandomSoundSlot(
-                    soundRepository,
-                    "random-firewood",
-                    firewood,
-                    "랜덤 장작소리",
-                    List.of("수면", "장작", "포근함"),
-                    60,
-                    "sounds/firewood/"
-            );
-        };
-    }
-
-    private SoundCategory findOrCreateCategory(
-            CategoryRepository categoryRepository,
-            String id,
-            String name,
-            String description,
-            String mood
-    ) {
-        return categoryRepository.findById(id)
-                .orElseGet(() -> categoryRepository.save(
-                        new SoundCategory(id, name, description, mood)
+            for (SoundCatalogItem sound : LuraSoundCatalog.sounds()) {
+                SoundCategory category = categoryRepository.save(new SoundCategory(
+                        sound.categoryId(),
+                        sound.categoryName(),
+                        sound.categoryDescription(),
+                        sound.categoryMood()
                 ));
+                upsertRandomSoundSlot(soundRepository, sound, category);
+            }
+        };
     }
 
     private void upsertRandomSoundSlot(
             SoundRepository soundRepository,
-            String id,
-            SoundCategory category,
-            String title,
-            List<String> tags,
-            int durationMinutes,
-            String s3Prefix
+            SoundCatalogItem sound,
+            SoundCategory category
     ) {
         soundRepository.save(new Sound(
-                id,
+                sound.id(),
                 category,
-                title,
-                tags,
-                durationMinutes,
-                s3Prefix
+                sound.title(),
+                sound.tags(),
+                sound.durationMinutes(),
+                sound.s3Prefix()
         ));
     }
 }

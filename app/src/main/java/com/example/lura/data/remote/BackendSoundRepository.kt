@@ -12,6 +12,7 @@ private fun logBackendWarning(message: String, error: Throwable) {
     Log.w(BACKEND_SOUND_REPOSITORY_TAG, message, error)
 }
 
+
 class BackendSoundRepository(
     private val apis: List<LuraBackendApi>,
     private val warningLogger: (String, Throwable) -> Unit = ::logBackendWarning

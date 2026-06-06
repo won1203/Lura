@@ -27,20 +27,11 @@
             android:textSize="30sp"
             android:textStyle="bold" />
 
-        <TextView
-            android:id="@+id/report_subtitle"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
-            android:text="@string/report_subtitle"
-            android:textColor="@color/lura_text_secondary"
-            android:textSize="15sp" />
-
         <com.google.android.material.card.MaterialCardView
             android:id="@+id/recent_average_card"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="30dp"
+            android:layout_marginTop="26dp"
             app:cardBackgroundColor="@color/lura_surface"
             app:cardCornerRadius="18dp"
             app:cardElevation="0dp"

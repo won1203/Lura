@@ -66,7 +66,12 @@ class SleepCalendarBottomSheetFragment : BottomSheetDialogFragment() {
             com.google.android.material.R.id.design_bottom_sheet
         ) ?: return
         bottomSheet.setBackgroundColor(Color.TRANSPARENT)
+        bottomSheet.layoutParams = bottomSheet.layoutParams.apply {
+            height = (resources.displayMetrics.heightPixels * BOTTOM_SHEET_HEIGHT_RATIO).toInt()
+        }
+        bottomSheet.requestLayout()
         val behavior = BottomSheetBehavior.from(bottomSheet)
+        behavior.peekHeight = bottomSheet.layoutParams.height
         behavior.state = BottomSheetBehavior.STATE_EXPANDED
     }
 
@@ -354,6 +359,7 @@ class SleepCalendarBottomSheetFragment : BottomSheetDialogFragment() {
         private const val FIVE_WEEK_CELL_COUNT = 35
         private const val SIX_WEEK_CELL_COUNT = 42
         private const val EMPTY_DURATION_TEXT = "-"
+        private const val BOTTOM_SHEET_HEIGHT_RATIO = 0.82f
 
         private fun startOfMonth(calendar: Calendar): Calendar =
             (calendar.clone() as Calendar).apply {

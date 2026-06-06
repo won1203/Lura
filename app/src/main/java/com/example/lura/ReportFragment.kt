@@ -20,6 +20,12 @@ class ReportFragment : Fragment(R.layout.fragment_report) {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
         _binding = FragmentReportBinding.bind(view)
+        binding.monthSummaryCard.setOnClickListener {
+            showSleepCalendar()
+        }
+        binding.monthCalendarIcon.setOnClickListener {
+            showSleepCalendar()
+        }
         loadReport()
     }
 
@@ -98,13 +104,20 @@ class ReportFragment : Fragment(R.layout.fragment_report) {
             }
     }
 
+    private fun showSleepCalendar() {
+        SleepCalendarBottomSheetFragment()
+            .show(parentFragmentManager, SleepCalendarBottomSheetFragment.TAG)
+    }
+
     private fun summarizeDailySleep(sessions: List<SleepSessionEntity>): SleepSummary {
         val dailyDurations = sessions
             .groupBy { targetDayKey(it.targetAlarmAtEpochMillis) }
             .mapValues { (_, daySessions) ->
                 daySessions.sumOf { session ->
-                    (session.targetAlarmAtEpochMillis - session.startedAtEpochMillis)
-                        .coerceAtLeast(0L)
+                    SleepReportTime.displayedMinuteDurationMillis(
+                        startedAtEpochMillis = session.startedAtEpochMillis,
+                        targetAlarmAtEpochMillis = session.targetAlarmAtEpochMillis
+                    )
                 }
             }
             .values

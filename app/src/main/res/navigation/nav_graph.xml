@@ -34,6 +34,12 @@
         tools:layout="@layout/fragment_alarm_history" />
 
     <fragment
+        android:id="@+id/reportFragment"
+        android:name="com.example.lura.ReportFragment"
+        android:label="@string/report_fragment_label"
+        tools:layout="@layout/fragment_report" />
+
+    <fragment
         android:id="@+id/playerFragment"
         android:name="com.example.lura.PlayerFragment"
         android:label="@string/player_fragment_label"

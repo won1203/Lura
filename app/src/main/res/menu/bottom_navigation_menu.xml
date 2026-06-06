@@ -14,4 +14,9 @@
         android:id="@+id/alarmHistoryFragment"
         android:icon="@drawable/ic_nav_history"
         android:title="@string/bottom_nav_alarm_history" />
+
+    <item
+        android:id="@+id/reportFragment"
+        android:icon="@drawable/ic_nav_report"
+        android:title="@string/bottom_nav_report" />
 </menu>

@@ -121,5 +121,36 @@
                 android:text="@string/bottom_nav_alarm_history"
                 android:textColor="@color/bottom_navigation_item_color" />
         </LinearLayout>
+
+        <LinearLayout
+            android:id="@+id/reportFragment"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:clickable="true"
+            android:contentDescription="@string/bottom_nav_report"
+            android:focusable="true"
+            android:gravity="center"
+            android:orientation="vertical">
+
+            <ImageView
+                android:layout_width="@dimen/bottom_navigation_icon_size"
+                android:layout_height="@dimen/bottom_navigation_icon_size"
+                android:contentDescription="@null"
+                android:duplicateParentState="true"
+                android:src="@drawable/ic_nav_report"
+                android:tint="@color/bottom_navigation_item_color" />
+
+            <TextView
+                style="@style/TextAppearance.Lura.BottomNavigation"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="@dimen/bottom_navigation_label_margin_top"
+                android:duplicateParentState="true"
+                android:singleLine="true"
+                android:text="@string/bottom_nav_report"
+                android:textColor="@color/bottom_navigation_item_color" />
+        </LinearLayout>
     </LinearLayout>
 </androidx.constraintlayout.widget.ConstraintLayout>

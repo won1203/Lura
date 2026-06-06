@@ -55,4 +55,18 @@ interface SleepSessionDao {
         """
     )
     fun getActiveSession(): SleepSessionEntity?
+
+    @Query(
+        """
+        SELECT * FROM sleep_sessions
+        WHERE status = 'COMPLETED'
+          AND targetAlarmAtEpochMillis >= :startInclusiveEpochMillis
+          AND targetAlarmAtEpochMillis < :endExclusiveEpochMillis
+        ORDER BY targetAlarmAtEpochMillis ASC
+        """
+    )
+    fun getCompletedSessionsInTargetRange(
+        startInclusiveEpochMillis: Long,
+        endExclusiveEpochMillis: Long
+    ): List<SleepSessionEntity>
 }

@@ -64,7 +64,8 @@ class MainActivity : AppCompatActivity() {
                 true
             }
             R.id.alarmSetupFragment,
-            R.id.alarmHistoryFragment -> {
+            R.id.alarmHistoryFragment,
+            R.id.reportFragment -> {
                 navController.navigate(itemId, null, bottomTabNavOptions())
                 true
             }
@@ -105,7 +106,8 @@ class MainActivity : AppCompatActivity() {
         private val BOTTOM_TAB_IDS = intArrayOf(
             R.id.homeFragment,
             R.id.alarmSetupFragment,
-            R.id.alarmHistoryFragment
+            R.id.alarmHistoryFragment,
+            R.id.reportFragment
         )
         private const val POST_NOTIFICATIONS_REQUEST_CODE = 4101
     }

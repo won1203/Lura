@@ -81,6 +81,28 @@ class RoomAlarmRepository(
             }
         }
 
+    override fun updateAlarmTimes(
+        alarmId: String,
+        sleepStartHour: Int,
+        sleepStartMinute: Int,
+        hour: Int,
+        minute: Int
+    ): AlarmSchedule? =
+        executeOnDisk {
+            val updatedRows = alarmDao.updateAlarmTimes(
+                alarmId = alarmId,
+                sleepStartHour = sleepStartHour,
+                sleepStartMinute = sleepStartMinute,
+                hour = hour,
+                minute = minute
+            )
+            if (updatedRows == 0) {
+                null
+            } else {
+                alarmDao.getAlarm(alarmId)?.let(AlarmEntityMapper::toDomain)
+            }
+        }
+
     override fun updateAlarmSoundObjectKey(alarmId: String, objectKey: String): AlarmSchedule? =
         executeOnDisk {
             val updatedRows = alarmDao.updateAlarmSoundObjectKey(

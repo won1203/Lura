@@ -2,6 +2,7 @@ package com.example.lura
 
 import android.os.Bundle
 import android.util.Log
+import android.util.TypedValue
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -9,6 +10,7 @@ import android.widget.CompoundButton
 import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AlertDialog
+import androidx.core.content.ContextCompat
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.lifecycleScope
 import androidx.navigation.fragment.findNavController
@@ -68,6 +70,7 @@ class AlarmHistoryFragment : Fragment() {
         binding.addAlarmButton.setOnClickListener {
             findNavController().navigate(R.id.alarmSetupFragment)
         }
+        registerAlarmTimeEditResultListener()
         renderAlarms(alarmRepository.getAlarms())
         showNoticeIfPresent()
     }
@@ -89,15 +92,55 @@ class AlarmHistoryFragment : Fragment() {
         }
     }
 
+    private fun registerAlarmTimeEditResultListener() {
+        parentFragmentManager.setFragmentResultListener(
+            AlarmTimeEditDialogFragment.REQUEST_KEY,
+            viewLifecycleOwner
+        ) { _, result ->
+            val alarmId = result.getString(AlarmTimeEditDialogFragment.RESULT_ALARM_ID)
+                ?: return@setFragmentResultListener
+            updateAlarmTimes(
+                alarmId = alarmId,
+                sleepStartHour = result.getInt(AlarmTimeEditDialogFragment.RESULT_SLEEP_START_HOUR),
+                sleepStartMinute = result.getInt(AlarmTimeEditDialogFragment.RESULT_SLEEP_START_MINUTE),
+                hour = result.getInt(AlarmTimeEditDialogFragment.RESULT_WAKE_HOUR),
+                minute = result.getInt(AlarmTimeEditDialogFragment.RESULT_WAKE_MINUTE)
+            )
+        }
+    }
+
     private fun bindAlarmItem(itemView: View, alarm: AlarmSchedule) {
         itemView.alpha = if (alarm.isEnabled) ENABLED_ALARM_ALPHA else DISABLED_ALARM_ALPHA
-        itemView.findViewById<TextView>(R.id.alarm_time_period).text =
+        val wakeTimeClickListener = View.OnClickListener {
+            showAlarmTimeEditDialog(alarm, AlarmTimeEditDialogFragment.TimeEditMode.WAKE_ALARM)
+        }
+        val alarmTimePeriod = itemView.findViewById<TextView>(R.id.alarm_time_period)
+        alarmTimePeriod.text =
             getString(if (alarm.hour < NOON_HOUR) R.string.time_period_am else R.string.time_period_pm)
-        itemView.findViewById<TextView>(R.id.alarm_time).text =
+        configureTimeEditClickTarget(
+            view = alarmTimePeriod,
+            contentDescription = getString(R.string.alarm_wake_time_edit_content_description),
+            listener = wakeTimeClickListener
+        )
+        val alarmTime = itemView.findViewById<TextView>(R.id.alarm_time)
+        alarmTime.text =
             getString(R.string.alarm_time_display_format, displayHour(alarm.hour), alarm.minute)
+        configureTimeEditClickTarget(
+            view = alarmTime,
+            contentDescription = getString(R.string.alarm_wake_time_edit_content_description),
+            listener = wakeTimeClickListener
+        )
         itemView.findViewById<TextView>(R.id.alarm_category).text = alarm.categoryName
-        itemView.findViewById<TextView>(R.id.alarm_sleep_start_time).text =
+        val sleepStartTime = itemView.findViewById<TextView>(R.id.alarm_sleep_start_time)
+        sleepStartTime.text =
             getString(R.string.sleep_start_time_format, alarm.sleepStartHour, alarm.sleepStartMinute)
+        configureTimeEditClickTarget(
+            view = sleepStartTime,
+            contentDescription = getString(R.string.alarm_sleep_start_time_edit_content_description),
+            listener = View.OnClickListener {
+                showAlarmTimeEditDialog(alarm, AlarmTimeEditDialogFragment.TimeEditMode.SLEEP_START)
+            }
+        )
         itemView.findViewById<TextView>(R.id.alarm_sound_title).text = alarm.soundTitle
         itemView.findViewById<TextView>(R.id.alarm_repeat_days).text =
             AlarmWeekdayFormatter.summary(requireContext(), alarm.weekdays)
@@ -112,6 +155,35 @@ class AlarmHistoryFragment : Fragment() {
         itemView.findViewById<MaterialButton>(R.id.delete_alarm_button).setOnClickListener {
             showDeleteAlarmDialog(alarm)
         }
+    }
+
+    private fun configureTimeEditClickTarget(
+        view: View,
+        contentDescription: String,
+        listener: View.OnClickListener
+    ) {
+        view.isClickable = true
+        view.isFocusable = true
+        view.contentDescription = contentDescription
+        val outValue = TypedValue()
+        if (
+            view.context.theme.resolveAttribute(
+                android.R.attr.selectableItemBackgroundBorderless,
+                outValue,
+                true
+            )
+        ) {
+            view.foreground = ContextCompat.getDrawable(view.context, outValue.resourceId)
+        }
+        view.setOnClickListener(listener)
+    }
+
+    private fun showAlarmTimeEditDialog(
+        alarm: AlarmSchedule,
+        initialMode: AlarmTimeEditDialogFragment.TimeEditMode
+    ) {
+        AlarmTimeEditDialogFragment.newInstance(alarm, initialMode)
+            .show(parentFragmentManager, AlarmTimeEditDialogFragment.TAG)
     }
 
     private fun renderNextAlarmSummary(alarms: List<AlarmSchedule>) {
@@ -219,6 +291,154 @@ class AlarmHistoryFragment : Fragment() {
             }.also(::renderAlarms)
         }
     }
+
+    private fun updateAlarmTimes(
+        alarmId: String,
+        sleepStartHour: Int,
+        sleepStartMinute: Int,
+        hour: Int,
+        minute: Int
+    ) {
+        viewLifecycleOwner.lifecycleScope.launch {
+            val updatedAlarm = withContext(Dispatchers.IO) {
+                alarmRepository.updateAlarmTimes(
+                    alarmId = alarmId,
+                    sleepStartHour = sleepStartHour,
+                    sleepStartMinute = sleepStartMinute,
+                    hour = hour,
+                    minute = minute
+                )
+            }
+            if (updatedAlarm == null) {
+                Toast.makeText(
+                    requireContext(),
+                    R.string.alarm_time_edit_failed_notice,
+                    Toast.LENGTH_SHORT
+                ).show()
+                renderAlarms(loadAlarms())
+                return@launch
+            }
+
+            if (updatedAlarm.isEnabled) {
+                rescheduleEnabledAlarmAfterTimeChange(updatedAlarm)
+            } else {
+                Toast.makeText(
+                    requireContext(),
+                    R.string.alarm_time_edit_saved_notice,
+                    Toast.LENGTH_SHORT
+                ).show()
+                renderAlarms(loadAlarms())
+            }
+        }
+    }
+
+    private suspend fun rescheduleEnabledAlarmAfterTimeChange(alarm: AlarmSchedule) {
+        if (alarm.soundId == UnselectedAlarmSound.SOUND_ID) {
+            disableAlarmAfterTimeEditFailure(alarm.id)
+            Toast.makeText(
+                requireContext(),
+                R.string.alarm_sound_required_to_enable,
+                Toast.LENGTH_SHORT
+            ).show()
+            renderAlarms(loadAlarms())
+            return
+        }
+
+        AlarmScheduler.cancelAll(requireContext(), loadAlarms())
+        SleepPlaybackController.stop(requireContext())
+
+        val result = withContext(Dispatchers.IO) {
+            startSleepSessionForAlarm.execute(alarm.id)
+        }
+        if (result == null) {
+            disableAlarmAfterTimeEditFailure(alarm.id)
+            Toast.makeText(
+                requireContext(),
+                R.string.alarm_sound_required_to_enable,
+                Toast.LENGTH_SHORT
+            ).show()
+            renderAlarms(loadAlarms())
+            return
+        }
+
+        val playbackSource = if (result.sleepSession != null) {
+            runCatching {
+                soundRepository.getPlaybackSource(
+                    soundId = result.alarmSchedule.soundId,
+                    objectKey = result.alarmSchedule.soundObjectKey.ifBlank { null }
+                )
+            }.getOrElse {
+                Log.e(TAG, "Failed to load playback source while updating alarm times.", it)
+                disableAlarmAfterTimeEditFailure(result.alarmSchedule.id)
+                Toast.makeText(
+                    requireContext(),
+                    R.string.alarm_playback_source_load_failed,
+                    Toast.LENGTH_LONG
+                ).show()
+                renderAlarms(loadAlarms())
+                return
+            }
+        } else {
+            null
+        }
+
+        if (
+            AlarmScheduler.schedule(
+                context = requireContext(),
+                alarm = result.alarmSchedule,
+                skipSleepStart = result.sleepSession != null
+            ) == null
+        ) {
+            disableAlarmAfterTimeEditFailure(result.alarmSchedule.id)
+            Toast.makeText(requireContext(), R.string.exact_alarm_schedule_failed, Toast.LENGTH_LONG).show()
+            renderAlarms(loadAlarms())
+            return
+        }
+
+        if (
+            playbackSource != null &&
+            playbackSource.objectKey.isNotBlank() &&
+            playbackSource.objectKey != result.alarmSchedule.soundObjectKey
+        ) {
+            withContext(Dispatchers.IO) {
+                alarmRepository.updateAlarmSoundObjectKey(result.alarmSchedule.id, playbackSource.objectKey)
+            }
+        }
+
+        val sleepSession = result.sleepSession
+        if (sleepSession != null && playbackSource != null) {
+            SleepPlaybackController.start(
+                requireContext(),
+                SleepPlaybackRequest.from(
+                    alarmSchedule = result.alarmSchedule,
+                    sleepSession = sleepSession,
+                    sourceUri = playbackSource.sourceUri
+                )
+            )
+        }
+
+        Toast.makeText(
+            requireContext(),
+            R.string.alarm_time_edit_saved_notice,
+            Toast.LENGTH_SHORT
+        ).show()
+        renderAlarms(loadAlarms())
+    }
+
+    private suspend fun disableAlarmAfterTimeEditFailure(alarmId: String) {
+        AlarmScheduler.cancel(requireContext(), alarmId)
+        val cancelledActivePlayback = withContext(Dispatchers.IO) {
+            disableAlarmAndCancelSleepSession.execute(alarmId)
+        }
+        if (cancelledActivePlayback) {
+            SleepPlaybackController.stop(requireContext())
+        }
+    }
+
+    private suspend fun loadAlarms(): List<AlarmSchedule> =
+        withContext(Dispatchers.IO) {
+            alarmRepository.getAlarms()
+        }
 
     private fun requestAlarmActivation(alarm: AlarmSchedule) {
         if (alarm.soundId == UnselectedAlarmSound.SOUND_ID) {

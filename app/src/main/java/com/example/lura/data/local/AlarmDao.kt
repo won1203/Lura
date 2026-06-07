@@ -46,6 +46,24 @@ interface AlarmDao {
         soundObjectKey: String
     ): Int
 
+    @Query(
+        """
+        UPDATE alarms
+        SET sleepStartHour = :sleepStartHour,
+            sleepStartMinute = :sleepStartMinute,
+            hour = :hour,
+            minute = :minute
+        WHERE id = :alarmId
+        """
+    )
+    fun updateAlarmTimes(
+        alarmId: String,
+        sleepStartHour: Int,
+        sleepStartMinute: Int,
+        hour: Int,
+        minute: Int
+    ): Int
+
     @Query("UPDATE alarms SET soundObjectKey = :soundObjectKey WHERE id = :alarmId")
     fun updateAlarmSoundObjectKey(alarmId: String, soundObjectKey: String): Int
 

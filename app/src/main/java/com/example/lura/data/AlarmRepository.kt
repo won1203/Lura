@@ -18,6 +18,13 @@ interface AlarmRepository {
         category: SoundCategory,
         sound: SoundItem
     ): AlarmSchedule?
+    fun updateAlarmTimes(
+        alarmId: String,
+        sleepStartHour: Int,
+        sleepStartMinute: Int,
+        hour: Int,
+        minute: Int
+    ): AlarmSchedule?
     fun updateAlarmSoundObjectKey(alarmId: String, objectKey: String): AlarmSchedule?
     fun deleteAlarm(alarmId: String): AlarmDeleteResult
 }

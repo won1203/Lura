@@ -137,6 +137,10 @@ class AlarmRingingActivity : AppCompatActivity() {
         val triggerKey = triggerKey(intent)
         if (handledTriggerKey == triggerKey) return
         handledTriggerKey = triggerKey
+        if (isStoppedAlarm(intent)) {
+            finishAndRemoveTask()
+            return
+        }
 
         AlarmTriggerDispatcher.trigger(
             context = this,
@@ -167,6 +171,14 @@ class AlarmRingingActivity : AppCompatActivity() {
         startService(
             Intent(this, AlarmRingingService::class.java)
                 .setAction(AlarmRingingService.ACTION_STOP)
+                .putExtra(
+                    AlarmRingingService.EXTRA_ALARM_ID,
+                    intent.getStringExtra(AlarmRingingService.EXTRA_ALARM_ID).orEmpty()
+                )
+                .putExtra(
+                    AlarmRingingService.EXTRA_ALARM_TRIGGER_AT_EPOCH_MILLIS,
+                    intent.getLongExtra(AlarmRingingService.EXTRA_ALARM_TRIGGER_AT_EPOCH_MILLIS, 0L)
+                )
         )
         finishAndRemoveTask()
     }
@@ -210,8 +222,6 @@ class AlarmRingingActivity : AppCompatActivity() {
         ).joinToString(separator = ":")
 
     private fun finishIfAlarmIsNotRinging(intent: Intent): Boolean {
-        if (isUnprocessedTrigger(intent)) return false
-
         val isCurrentRinging = AlarmRingingState.isCurrentRinging(
             context = this,
             alarmId = intent.getStringExtra(AlarmRingingService.EXTRA_ALARM_ID).orEmpty(),
@@ -221,10 +231,21 @@ class AlarmRingingActivity : AppCompatActivity() {
             )
         )
         if (isCurrentRinging) return false
+        if (isUnprocessedTrigger(intent) && !isStoppedAlarm(intent)) return false
 
         finishAndRemoveTask()
         return true
     }
+
+    private fun isStoppedAlarm(intent: Intent): Boolean =
+        AlarmRingingState.isStopped(
+            context = this,
+            alarmId = intent.getStringExtra(AlarmRingingService.EXTRA_ALARM_ID).orEmpty(),
+            triggerAtEpochMillis = intent.getLongExtra(
+                AlarmRingingService.EXTRA_ALARM_TRIGGER_AT_EPOCH_MILLIS,
+                0L
+            )
+        )
 
     private fun isUnprocessedTrigger(intent: Intent): Boolean =
         intent.action == ACTION_TRIGGER && handledTriggerKey != triggerKey(intent)

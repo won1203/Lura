@@ -31,13 +31,16 @@ class AlarmRingingService : Service() {
     private var startRingingRunnable: Runnable? = null
     private var autoStopRunnable: Runnable? = null
     private var fallbackToneRunnable: Runnable? = null
+    private var currentAlarmId: String = ""
+    private var currentTriggerAtEpochMillis: Long = 0L
 
     override fun onBind(intent: Intent?): IBinder? = null
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         when (intent?.action) {
             ACTION_START -> startAlarmFlow(intent)
-            ACTION_STOP -> stopAlarm()
+            ACTION_SNOOZE -> snoozeAlarm(intent)
+            ACTION_STOP -> stopAlarm(intent)
             else -> stopSelf()
         }
         return START_NOT_STICKY
@@ -57,6 +60,13 @@ class AlarmRingingService : Service() {
         val alarmHour = intent.optionalIntExtra(EXTRA_ALARM_HOUR)
         val alarmMinute = intent.optionalIntExtra(EXTRA_ALARM_MINUTE)
         val triggerAtEpochMillis = intent.getLongExtra(EXTRA_ALARM_TRIGGER_AT_EPOCH_MILLIS, 0L)
+        if (AlarmRingingState.isStopped(this, alarmId, triggerAtEpochMillis)) {
+            stopSelf()
+            return
+        }
+
+        currentAlarmId = alarmId
+        currentTriggerAtEpochMillis = triggerAtEpochMillis
 
         AlarmRingingState.markRinging(
             context = this,
@@ -101,10 +111,36 @@ class AlarmRingingService : Service() {
         }
     }
 
-    private fun stopAlarm() {
+    private fun snoozeAlarm(intent: Intent) {
+        val triggerAtEpochMillis = System.currentTimeMillis() + SNOOZE_DURATION_MS
+        AlarmScheduler.scheduleSnooze(
+            context = this,
+            alarmId = intent.getStringExtra(EXTRA_ALARM_ID).orEmpty(),
+            alarmTitle = intent.getStringExtra(EXTRA_ALARM_TITLE)
+                ?.takeIf(String::isNotBlank)
+                ?: getString(R.string.alarm_ringing_default_title),
+            triggerAtEpochMillis = triggerAtEpochMillis
+        )
+        stopAlarm(intent)
+    }
+
+    private fun stopAlarm(intent: Intent? = null) {
+        val stoppedAlarmId = intent?.getStringExtra(EXTRA_ALARM_ID)
+            ?.takeIf(String::isNotBlank)
+            ?: currentAlarmId
+        val stoppedTriggerAtEpochMillis = intent
+            ?.getLongExtra(EXTRA_ALARM_TRIGGER_AT_EPOCH_MILLIS, 0L)
+            ?.takeIf { it > 0L }
+            ?: currentTriggerAtEpochMillis
         clearCallbacks()
         releasePlayer()
-        AlarmRingingState.markStopped(this)
+        AlarmRingingState.markStopped(
+            context = this,
+            alarmId = stoppedAlarmId,
+            triggerAtEpochMillis = stoppedTriggerAtEpochMillis
+        )
+        currentAlarmId = ""
+        currentTriggerAtEpochMillis = 0L
         sendBroadcast(
             Intent(ACTION_ALARM_STOPPED)
                 .setPackage(packageName)
@@ -207,8 +243,13 @@ class AlarmRingingService : Service() {
         )
         val stopAction = Notification.Action.Builder(
             R.drawable.ic_stop_24,
-            getString(R.string.alarm_ringing_stop),
-            createStopIntent()
+            getString(R.string.alarm_ringing_dismiss),
+            createStopIntent(alarmId, triggerAtEpochMillis)
+        ).build()
+        val snoozeAction = Notification.Action.Builder(
+            R.drawable.ic_pause_24,
+            getString(R.string.alarm_ringing_snooze),
+            createSnoozeIntent(alarmId, alarmTitle, triggerAtEpochMillis)
         ).build()
 
         return builder
@@ -231,6 +272,7 @@ class AlarmRingingService : Service() {
                 setVibrate(null)
             }
             .addAction(stopAction)
+            .addAction(snoozeAction)
             .build()
     }
 
@@ -280,12 +322,35 @@ class AlarmRingingService : Service() {
         )
     }
 
-    private fun createStopIntent(): PendingIntent {
+    private fun createStopIntent(
+        alarmId: String = "",
+        triggerAtEpochMillis: Long = 0L
+    ): PendingIntent {
         val intent = Intent(this, AlarmRingingService::class.java)
             .setAction(ACTION_STOP)
+            .putExtra(EXTRA_ALARM_ID, alarmId)
+            .putExtra(EXTRA_ALARM_TRIGGER_AT_EPOCH_MILLIS, triggerAtEpochMillis)
         return PendingIntent.getService(
             this,
             ALARM_STOP_REQUEST_CODE,
+            intent,
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+        )
+    }
+
+    private fun createSnoozeIntent(
+        alarmId: String,
+        alarmTitle: String,
+        triggerAtEpochMillis: Long
+    ): PendingIntent {
+        val intent = Intent(this, AlarmRingingService::class.java)
+            .setAction(ACTION_SNOOZE)
+            .putExtra(EXTRA_ALARM_ID, alarmId)
+            .putExtra(EXTRA_ALARM_TITLE, alarmTitle)
+            .putExtra(EXTRA_ALARM_TRIGGER_AT_EPOCH_MILLIS, triggerAtEpochMillis)
+        return PendingIntent.getService(
+            this,
+            ALARM_SNOOZE_REQUEST_CODE,
             intent,
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
         )
@@ -301,6 +366,7 @@ class AlarmRingingService : Service() {
 
     companion object {
         const val ACTION_START = "com.example.lura.alarm.action.START"
+        const val ACTION_SNOOZE = "com.example.lura.alarm.action.SNOOZE"
         const val ACTION_STOP = "com.example.lura.alarm.action.STOP"
         const val ACTION_ALARM_STOPPED = "com.example.lura.alarm.action.STOPPED"
         const val EXTRA_ALARM_ID = "alarm.extra.ALARM_ID"
@@ -312,8 +378,10 @@ class AlarmRingingService : Service() {
         private const val ALARM_NOTIFICATION_ID = 3001
         private const val ALARM_CONTENT_REQUEST_CODE = 3002
         private const val ALARM_STOP_REQUEST_CODE = 3003
+        private const val ALARM_SNOOZE_REQUEST_CODE = 3004
         private const val ALARM_NOTIFICATION_CHANNEL_ID = "alarm_ringing_full_screen"
         private const val SLEEP_FADE_OUT_DURATION_MS = 5_000L
+        private const val SNOOZE_DURATION_MS = 5 * 60 * 1_000L
         private const val MAX_ALARM_RING_DURATION_MS = 10 * 60 * 1_000L
         private const val FALLBACK_TONE_VOLUME = 100
         private const val FALLBACK_TONE_DURATION_MS = 900L

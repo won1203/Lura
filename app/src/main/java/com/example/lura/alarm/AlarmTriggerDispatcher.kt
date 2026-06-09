@@ -18,6 +18,11 @@ object AlarmTriggerDispatcher {
         val appContext = context.applicationContext
         val normalizedTitle = alarmTitle.ifBlank { null }
 
+        if (AlarmRingingState.isStopped(appContext, alarmId, triggerAtEpochMillis)) {
+            Log.i(TAG, "Ignoring stopped alarm trigger: $alarmId")
+            return
+        }
+
         AlarmRingingState.markRinging(
             context = appContext,
             alarmId = alarmId,

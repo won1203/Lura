@@ -53,6 +53,33 @@ val releaseApiBaseUrl = configuredValue(
     envName = "LURA_RELEASE_API_BASE_URL"
 )?.let(::normalizeBaseUrl)
 
+val releaseSigningStoreFile = configuredValue(
+    propertyName = "lura.signing.storeFile",
+    envName = "LURA_SIGNING_STORE_FILE"
+)
+val releaseSigningStorePassword = configuredValue(
+    propertyName = "lura.signing.storePassword",
+    envName = "LURA_SIGNING_STORE_PASSWORD"
+)
+val releaseSigningKeyAlias = configuredValue(
+    propertyName = "lura.signing.keyAlias",
+    envName = "LURA_SIGNING_KEY_ALIAS"
+)
+val releaseSigningKeyPassword = configuredValue(
+    propertyName = "lura.signing.keyPassword",
+    envName = "LURA_SIGNING_KEY_PASSWORD"
+)
+val releaseSigningProperties = mapOf(
+    "lura.signing.storeFile" to releaseSigningStoreFile,
+    "lura.signing.storePassword" to releaseSigningStorePassword,
+    "lura.signing.keyAlias" to releaseSigningKeyAlias,
+    "lura.signing.keyPassword" to releaseSigningKeyPassword
+)
+val releaseSigningConfigured = releaseSigningProperties.values.any { it != null }
+val missingReleaseSigningProperties = releaseSigningProperties
+    .filterValues { it == null }
+    .keys
+
 fun validateReleaseApiBaseUrl(baseUrl: String) {
     val uri = runCatching { URI(baseUrl) }.getOrElse {
         throw GradleException("Release API base URL is invalid: $baseUrl")
@@ -98,6 +125,17 @@ fun validateReleaseApiBaseUrl(baseUrl: String) {
 
 releaseApiBaseUrl?.let(::validateReleaseApiBaseUrl)
 
+if (releaseSigningConfigured && missingReleaseSigningProperties.isNotEmpty()) {
+    throw GradleException(
+        "Release signing is partially configured. Missing: " +
+            missingReleaseSigningProperties.joinToString()
+    )
+}
+
+if (releaseSigningConfigured && !rootProject.file(releaseSigningStoreFile!!).isFile) {
+    throw GradleException("Release signing keystore does not exist: $releaseSigningStoreFile")
+}
+
 val releaseBuildRequested = gradle.startParameter.taskNames.any { taskName ->
     taskName.lowercase().let { normalizedTaskName ->
         normalizedTaskName.contains("release") ||
@@ -138,6 +176,17 @@ android {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
+    signingConfigs {
+        if (releaseSigningConfigured) {
+            create("release") {
+                storeFile = rootProject.file(releaseSigningStoreFile!!)
+                storePassword = releaseSigningStorePassword
+                keyAlias = releaseSigningKeyAlias
+                keyPassword = releaseSigningKeyPassword
+            }
+        }
+    }
+
     buildTypes {
         debug {
             buildConfigField("String", "LURA_API_BASE_URL", buildConfigString(debugApiBaseUrl))
@@ -145,6 +194,9 @@ android {
         }
 
         release {
+            if (releaseSigningConfigured) {
+                signingConfig = signingConfigs.getByName("release")
+            }
             buildConfigField(
                 "String",
                 "LURA_API_BASE_URL",

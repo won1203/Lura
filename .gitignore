@@ -19,5 +19,8 @@ local.properties
 /.gradle-sandbox/
 /.kotlin/
 /.tmp/
+/release-keystore/
+*.jks
+*.keystore
 /lura_*.xml
 /lura_*.png

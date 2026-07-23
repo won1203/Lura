@@ -24,3 +24,6 @@ local.properties
 *.keystore
 /lura_*.xml
 /lura_*.png
+agent_prompt.md
+worklog.md
+명세서.md

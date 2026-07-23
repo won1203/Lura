@@ -1,20 +1,20 @@
 package com.example.lura.data
 
 internal class LocalSoundRepository(
-    private val catalog: SoundRepository = DefaultSoundRepository,
     private val selectTrack: (List<LocalSoundTrack>) -> LocalSoundTrack = { tracks ->
         tracks.random()
     }
 ) : SoundRepository {
 
     override suspend fun getCategories(): List<SoundCategory> =
-        catalog.getCategories()
+        DefaultSoundCatalog.categories
 
     override suspend fun getCategory(categoryId: String): SoundCategory? =
-        catalog.getCategory(categoryId)
+        DefaultSoundCatalog.categories.firstOrNull { category -> category.id == categoryId }
 
     override suspend fun getRecommendedSound(categoryId: String): SoundItem? =
-        catalog.getRecommendedSound(categoryId)
+        DefaultSoundCatalog.recommendedSounds
+            .firstOrNull { sound -> sound.categoryId == categoryId }
 
     override suspend fun getPlaybackSource(
         soundId: String,

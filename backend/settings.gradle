@@ -1,4 +1,0 @@
-rootProject.name = 'backend'
-
-include 'core'
-include 'lambda-api'

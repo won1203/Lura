@@ -273,6 +273,10 @@ class AlarmRingingService : Service() {
             }
             .addAction(stopAction)
             .addAction(snoozeAction)
+            .setStyle(
+                Notification.MediaStyle()
+                    .setShowActionsInCompactView(COMPACT_STOP_ACTION_INDEX)
+            )
             .build()
     }
 
@@ -379,6 +383,7 @@ class AlarmRingingService : Service() {
         private const val ALARM_CONTENT_REQUEST_CODE = 3002
         private const val ALARM_STOP_REQUEST_CODE = 3003
         private const val ALARM_SNOOZE_REQUEST_CODE = 3004
+        private const val COMPACT_STOP_ACTION_INDEX = 0
         private const val ALARM_NOTIFICATION_CHANNEL_ID = "alarm_ringing_full_screen"
         private const val SLEEP_FADE_OUT_DURATION_MS = 5_000L
         private const val SNOOZE_DURATION_MS = 5 * 60 * 1_000L

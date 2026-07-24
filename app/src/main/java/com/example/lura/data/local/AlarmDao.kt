@@ -4,6 +4,7 @@ import androidx.room.Dao
 import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
+import com.example.lura.data.AlarmWeekday
 
 @Dao
 interface AlarmDao {
@@ -63,6 +64,9 @@ interface AlarmDao {
         hour: Int,
         minute: Int
     ): Int
+
+    @Query("UPDATE alarms SET weekdays = :weekdays WHERE id = :alarmId")
+    fun updateAlarmWeekdays(alarmId: String, weekdays: List<AlarmWeekday>): Int
 
     @Query("UPDATE alarms SET soundObjectKey = :soundObjectKey WHERE id = :alarmId")
     fun updateAlarmSoundObjectKey(alarmId: String, soundObjectKey: String): Int

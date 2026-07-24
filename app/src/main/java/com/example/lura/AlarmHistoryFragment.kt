@@ -19,6 +19,7 @@ import com.example.lura.data.AlarmRepository
 import com.example.lura.data.AlarmRepositoryProvider
 import com.example.lura.data.AlarmSchedule
 import com.example.lura.data.AlarmTargetTimeCalculator
+import com.example.lura.data.AlarmWeekday
 import com.example.lura.data.DisableAlarmAndCancelSleepSession
 import com.example.lura.data.DisableAlarmAndCancelSleepSessionProvider
 import com.example.lura.data.StartSleepSessionForAlarm
@@ -73,6 +74,13 @@ class AlarmHistoryFragment : Fragment() {
         registerAlarmTimeEditResultListener()
         renderAlarms(alarmRepository.getAlarms())
         showNoticeIfPresent()
+    }
+
+    override fun onResume() {
+        super.onResume()
+        if (_binding != null) {
+            renderAlarms(alarmRepository.getAlarms())
+        }
     }
 
     private fun renderAlarms(alarms: List<AlarmSchedule>) {
@@ -142,8 +150,15 @@ class AlarmHistoryFragment : Fragment() {
             }
         )
         itemView.findViewById<TextView>(R.id.alarm_sound_title).text = alarm.soundTitle
-        itemView.findViewById<TextView>(R.id.alarm_repeat_days).text =
-            AlarmWeekdayFormatter.summary(requireContext(), alarm.weekdays)
+        val repeatDays = itemView.findViewById<TextView>(R.id.alarm_repeat_days)
+        repeatDays.text = AlarmWeekdayFormatter.summary(requireContext(), alarm.weekdays)
+        configureTimeEditClickTarget(
+            view = repeatDays,
+            contentDescription = getString(R.string.alarm_weekday_edit_content_description),
+            listener = View.OnClickListener {
+                showWeekdayEditDialog(alarm)
+            }
+        )
         itemView.findViewById<TextView>(R.id.alarm_status).text = getStatusText(alarm.isEnabled)
 
         val enabledSwitch = itemView.findViewById<SwitchMaterial>(R.id.alarm_enabled_switch)
@@ -184,6 +199,51 @@ class AlarmHistoryFragment : Fragment() {
     ) {
         AlarmTimeEditDialogFragment.newInstance(alarm, initialMode)
             .show(parentFragmentManager, AlarmTimeEditDialogFragment.TAG)
+    }
+
+    private fun showWeekdayEditDialog(alarm: AlarmSchedule) {
+        val weekdays = AlarmWeekday.values().sortedBy { it.sortOrder }
+        val selectedWeekdays = alarm.weekdays.toMutableSet()
+        val labels = weekdays
+            .map { AlarmWeekdayFormatter.shortLabel(requireContext(), it) }
+            .toTypedArray()
+        val checkedItems = BooleanArray(weekdays.size) { index ->
+            selectedWeekdays.contains(weekdays[index])
+        }
+
+        val dialog = AlertDialog.Builder(requireContext())
+            .setTitle(R.string.alarm_weekday_edit_title)
+            .setMultiChoiceItems(labels, checkedItems) { _, which, isChecked ->
+                val weekday = weekdays[which]
+                if (isChecked) {
+                    selectedWeekdays.add(weekday)
+                } else {
+                    selectedWeekdays.remove(weekday)
+                }
+            }
+            .setNegativeButton(R.string.cancel_alarm, null)
+            .setPositiveButton(R.string.save_alarm_short, null)
+            .create()
+
+        dialog.setOnShowListener {
+            dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener {
+                if (selectedWeekdays.isEmpty()) {
+                    Toast.makeText(
+                        requireContext(),
+                        R.string.weekday_select_required,
+                        Toast.LENGTH_SHORT
+                    ).show()
+                    return@setOnClickListener
+                }
+
+                dialog.dismiss()
+                updateAlarmWeekdays(
+                    alarmId = alarm.id,
+                    weekdays = selectedWeekdays.sortedBy { it.sortOrder }
+                )
+            }
+        }
+        dialog.show()
     }
 
     private fun renderNextAlarmSummary(alarms: List<AlarmSchedule>) {
@@ -320,7 +380,10 @@ class AlarmHistoryFragment : Fragment() {
             }
 
             if (updatedAlarm.isEnabled) {
-                rescheduleEnabledAlarmAfterTimeChange(updatedAlarm)
+                rescheduleEnabledAlarmAfterScheduleChange(
+                    alarm = updatedAlarm,
+                    successMessageResId = R.string.alarm_time_edit_saved_notice
+                )
             } else {
                 Toast.makeText(
                     requireContext(),
@@ -332,7 +395,44 @@ class AlarmHistoryFragment : Fragment() {
         }
     }
 
-    private suspend fun rescheduleEnabledAlarmAfterTimeChange(alarm: AlarmSchedule) {
+    private fun updateAlarmWeekdays(
+        alarmId: String,
+        weekdays: List<AlarmWeekday>
+    ) {
+        viewLifecycleOwner.lifecycleScope.launch {
+            val updatedAlarm = withContext(Dispatchers.IO) {
+                alarmRepository.updateAlarmWeekdays(alarmId, weekdays)
+            }
+            if (updatedAlarm == null) {
+                Toast.makeText(
+                    requireContext(),
+                    R.string.alarm_weekday_edit_failed_notice,
+                    Toast.LENGTH_SHORT
+                ).show()
+                renderAlarms(loadAlarms())
+                return@launch
+            }
+
+            if (updatedAlarm.isEnabled) {
+                rescheduleEnabledAlarmAfterScheduleChange(
+                    alarm = updatedAlarm,
+                    successMessageResId = R.string.alarm_weekday_edit_saved_notice
+                )
+            } else {
+                Toast.makeText(
+                    requireContext(),
+                    R.string.alarm_weekday_edit_saved_notice,
+                    Toast.LENGTH_SHORT
+                ).show()
+                renderAlarms(loadAlarms())
+            }
+        }
+    }
+
+    private suspend fun rescheduleEnabledAlarmAfterScheduleChange(
+        alarm: AlarmSchedule,
+        successMessageResId: Int
+    ) {
         if (alarm.soundId == UnselectedAlarmSound.SOUND_ID) {
             disableAlarmAfterTimeEditFailure(alarm.id)
             Toast.makeText(
@@ -368,7 +468,7 @@ class AlarmHistoryFragment : Fragment() {
                     objectKey = result.alarmSchedule.soundObjectKey.ifBlank { null }
                 )
             }.getOrElse {
-                Log.e(TAG, "Failed to load playback source while updating alarm times.", it)
+                Log.e(TAG, "Failed to load playback source while updating alarm schedule.", it)
                 disableAlarmAfterTimeEditFailure(result.alarmSchedule.id)
                 Toast.makeText(
                     requireContext(),
@@ -419,7 +519,7 @@ class AlarmHistoryFragment : Fragment() {
 
         Toast.makeText(
             requireContext(),
-            R.string.alarm_time_edit_saved_notice,
+            successMessageResId,
             Toast.LENGTH_SHORT
         ).show()
         renderAlarms(loadAlarms())

@@ -25,6 +25,10 @@ interface AlarmRepository {
         hour: Int,
         minute: Int
     ): AlarmSchedule?
+    fun updateAlarmWeekdays(
+        alarmId: String,
+        weekdays: List<AlarmWeekday>
+    ): AlarmSchedule?
     fun updateAlarmSoundObjectKey(alarmId: String, objectKey: String): AlarmSchedule?
     fun deleteAlarm(alarmId: String): AlarmDeleteResult
 }

@@ -156,7 +156,10 @@ object AlarmScheduler {
                 alarmId = alarm.id,
                 eventType = eventType,
                 pendingIntentFlag = pendingIntentFlag,
-                alarmTitle = alarm.soundTitle
+                alarmTitle = alarm.soundTitle,
+                categoryName = alarm.categoryName,
+                wakeHour = alarm.hour,
+                wakeMinute = alarm.minute
             )
         )
 
@@ -165,14 +168,20 @@ object AlarmScheduler {
         alarmId: String,
         eventType: AlarmEventType,
         pendingIntentFlag: Int,
-        alarmTitle: String = ""
+        alarmTitle: String = "",
+        categoryName: String = "",
+        wakeHour: Int? = null,
+        wakeMinute: Int? = null
     ): PendingIntent? =
         createBroadcastAlarmOperation(
             context = context,
             alarmId = alarmId,
             eventType = eventType,
             pendingIntentFlag = pendingIntentFlag,
-            alarmTitle = alarmTitle
+            alarmTitle = alarmTitle,
+            categoryName = categoryName,
+            wakeHour = wakeHour,
+            wakeMinute = wakeMinute
         )
 
     private fun createBroadcastAlarmOperation(
@@ -184,6 +193,9 @@ object AlarmScheduler {
         triggerAtEpochMillis: Long = 0L,
         alarmHour: Int? = null,
         alarmMinute: Int? = null,
+        categoryName: String = "",
+        wakeHour: Int? = null,
+        wakeMinute: Int? = null,
         requestCodeOverride: Int? = null
     ): PendingIntent? {
         val intent = Intent(context, AlarmEventReceiver::class.java)
@@ -194,6 +206,11 @@ object AlarmScheduler {
             .putExtra(AlarmRingingService.EXTRA_ALARM_TRIGGER_AT_EPOCH_MILLIS, triggerAtEpochMillis)
         alarmHour?.let { intent.putExtra(AlarmRingingService.EXTRA_ALARM_HOUR, it) }
         alarmMinute?.let { intent.putExtra(AlarmRingingService.EXTRA_ALARM_MINUTE, it) }
+        if (categoryName.isNotBlank()) {
+            intent.putExtra(AlarmEventReceiver.EXTRA_CATEGORY_NAME, categoryName)
+        }
+        wakeHour?.let { intent.putExtra(AlarmEventReceiver.EXTRA_WAKE_HOUR, it) }
+        wakeMinute?.let { intent.putExtra(AlarmEventReceiver.EXTRA_WAKE_MINUTE, it) }
 
         return PendingIntent.getBroadcast(
             context,

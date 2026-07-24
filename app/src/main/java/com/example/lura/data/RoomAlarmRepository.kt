@@ -103,6 +103,22 @@ class RoomAlarmRepository(
             }
         }
 
+    override fun updateAlarmWeekdays(
+        alarmId: String,
+        weekdays: List<AlarmWeekday>
+    ): AlarmSchedule? =
+        executeOnDisk {
+            val updatedRows = alarmDao.updateAlarmWeekdays(
+                alarmId = alarmId,
+                weekdays = weekdays.sortedBy { it.sortOrder }
+            )
+            if (updatedRows == 0) {
+                null
+            } else {
+                alarmDao.getAlarm(alarmId)?.let(AlarmEntityMapper::toDomain)
+            }
+        }
+
     override fun updateAlarmSoundObjectKey(alarmId: String, objectKey: String): AlarmSchedule? =
         executeOnDisk {
             val updatedRows = alarmDao.updateAlarmSoundObjectKey(

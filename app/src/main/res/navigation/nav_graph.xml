@@ -7,18 +7,22 @@
 
     <fragment
         android:id="@+id/homeFragment"
-        android:name="com.example.lura.HomeFragment"
+        android:name="com.won1203.lura.HomeFragment"
         android:label="@string/home_fragment_label"
         tools:layout="@layout/fragment_home">
 
         <action
             android:id="@+id/action_homeFragment_to_alarmSetupFragment"
             app:destination="@id/alarmSetupFragment" />
+
+        <action
+            android:id="@+id/action_homeFragment_to_appInfoFragment"
+            app:destination="@id/appInfoFragment" />
     </fragment>
 
     <fragment
         android:id="@+id/alarmSetupFragment"
-        android:name="com.example.lura.AlarmSetupFragment"
+        android:name="com.won1203.lura.AlarmSetupFragment"
         android:label="@string/alarm_setup_fragment_label"
         tools:layout="@layout/fragment_alarm_setup">
 
@@ -29,19 +33,36 @@
 
     <fragment
         android:id="@+id/alarmHistoryFragment"
-        android:name="com.example.lura.AlarmHistoryFragment"
+        android:name="com.won1203.lura.AlarmHistoryFragment"
         android:label="@string/alarm_history_fragment_label"
         tools:layout="@layout/fragment_alarm_history" />
 
     <fragment
         android:id="@+id/reportFragment"
-        android:name="com.example.lura.ReportFragment"
+        android:name="com.won1203.lura.ReportFragment"
         android:label="@string/report_fragment_label"
         tools:layout="@layout/fragment_report" />
 
     <fragment
         android:id="@+id/playerFragment"
-        android:name="com.example.lura.PlayerFragment"
+        android:name="com.won1203.lura.PlayerFragment"
         android:label="@string/player_fragment_label"
         tools:layout="@layout/fragment_player" />
+
+    <fragment
+        android:id="@+id/appInfoFragment"
+        android:name="com.won1203.lura.AppInfoFragment"
+        android:label="@string/app_info_title"
+        tools:layout="@layout/fragment_app_info">
+
+        <action
+            android:id="@+id/action_appInfoFragment_to_legalDocumentFragment"
+            app:destination="@id/legalDocumentFragment" />
+    </fragment>
+
+    <fragment
+        android:id="@+id/legalDocumentFragment"
+        android:name="com.won1203.lura.LegalDocumentFragment"
+        android:label="@string/app_info_title"
+        tools:layout="@layout/fragment_legal_document" />
 </navigation>

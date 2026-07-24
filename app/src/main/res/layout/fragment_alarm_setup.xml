@@ -86,12 +86,12 @@
                     android:gravity="center"
                     android:orientation="horizontal">
 
-                    <com.example.lura.WheelPickerView
+                    <com.won1203.lura.WheelPickerView
                         android:id="@+id/alarm_period_picker"
                         android:layout_width="104dp"
                         android:layout_height="match_parent" />
 
-                    <com.example.lura.WheelPickerView
+                    <com.won1203.lura.WheelPickerView
                         android:id="@+id/alarm_hour_picker"
                         android:layout_width="92dp"
                         android:layout_height="match_parent" />
@@ -105,7 +105,7 @@
                         android:textSize="40sp"
                         android:textStyle="bold" />
 
-                    <com.example.lura.WheelPickerView
+                    <com.won1203.lura.WheelPickerView
                         android:id="@+id/alarm_minute_picker"
                         android:layout_width="92dp"
                         android:layout_height="match_parent" />
@@ -136,12 +136,12 @@
                     android:gravity="center"
                     android:orientation="horizontal">
 
-                    <com.example.lura.WheelPickerView
+                    <com.won1203.lura.WheelPickerView
                         android:id="@+id/sleep_start_period_picker"
                         android:layout_width="104dp"
                         android:layout_height="match_parent" />
 
-                    <com.example.lura.WheelPickerView
+                    <com.won1203.lura.WheelPickerView
                         android:id="@+id/sleep_start_hour_picker"
                         android:layout_width="92dp"
                         android:layout_height="match_parent" />
@@ -155,7 +155,7 @@
                         android:textSize="40sp"
                         android:textStyle="bold" />
 
-                    <com.example.lura.WheelPickerView
+                    <com.won1203.lura.WheelPickerView
                         android:id="@+id/sleep_start_minute_picker"
                         android:layout_width="92dp"
                         android:layout_height="match_parent" />

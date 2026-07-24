@@ -77,12 +77,12 @@
         android:gravity="center"
         android:orientation="horizontal">
 
-        <com.example.lura.WheelPickerView
+        <com.won1203.lura.WheelPickerView
             android:id="@+id/period_picker"
             android:layout_width="96dp"
             android:layout_height="match_parent" />
 
-        <com.example.lura.WheelPickerView
+        <com.won1203.lura.WheelPickerView
             android:id="@+id/hour_picker"
             android:layout_width="84dp"
             android:layout_height="match_parent" />
@@ -96,7 +96,7 @@
             android:textSize="40sp"
             android:textStyle="bold" />
 
-        <com.example.lura.WheelPickerView
+        <com.won1203.lura.WheelPickerView
             android:id="@+id/minute_picker"
             android:layout_width="84dp"
             android:layout_height="match_parent" />

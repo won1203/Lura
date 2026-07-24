@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <androidx.core.widget.NestedScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
@@ -16,20 +17,38 @@
         android:paddingEnd="24dp"
         android:paddingBottom="32dp">
 
-        <TextView
-            android:id="@+id/home_brand_name"
+        <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:fontFamily="sans-serif-medium"
-            android:includeFontPadding="false"
-            android:shadowColor="@color/lura_brand_shadow"
-            android:shadowDx="0"
-            android:shadowDy="0"
-            android:shadowRadius="10"
-            android:text="@string/app_name"
-            android:textColor="@color/lura_text_primary"
-            android:textSize="36sp"
-            android:textStyle="bold" />
+            android:gravity="center_vertical"
+            android:orientation="horizontal">
+
+            <TextView
+                android:id="@+id/home_brand_name"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:fontFamily="sans-serif-medium"
+                android:includeFontPadding="false"
+                android:shadowColor="@color/lura_brand_shadow"
+                android:shadowDx="0"
+                android:shadowDy="0"
+                android:shadowRadius="10"
+                android:text="@string/app_name"
+                android:textColor="@color/lura_text_primary"
+                android:textSize="36sp"
+                android:textStyle="bold" />
+
+            <ImageButton
+                android:id="@+id/app_info_button"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:contentDescription="@string/app_info_open_content_description"
+                android:padding="11dp"
+                android:src="@drawable/ic_info_24"
+                app:tint="@color/lura_text_secondary" />
+        </LinearLayout>
 
         <LinearLayout
             android:id="@+id/category_list"

@@ -58,11 +58,11 @@ if (releaseSigningConfigured && !rootProject.file(releaseSigningStoreFile!!).isF
 }
 
 android {
-    namespace = "com.example.lura"
+    namespace = "com.won1203.lura"
     compileSdk = 36
 
     defaultConfig {
-        applicationId = "com.example.lura"
+        applicationId = "com.won1203.lura"
         minSdk = 24
         targetSdk = 36
         versionCode = 1

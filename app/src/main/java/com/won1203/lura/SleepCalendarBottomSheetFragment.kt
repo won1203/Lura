@@ -13,6 +13,8 @@ import android.widget.TextView
 import androidx.core.content.ContextCompat
 import androidx.core.view.isVisible
 import androidx.lifecycle.lifecycleScope
+import com.won1203.lura.data.DefaultSoundCatalog
+import com.won1203.lura.data.LocalSoundCatalog
 import com.won1203.lura.data.local.AlarmEntity
 import com.won1203.lura.data.local.LuraDatabase
 import com.won1203.lura.data.local.SleepSessionEntity
@@ -229,8 +231,10 @@ class SleepCalendarBottomSheetFragment : BottomSheetDialogFragment() {
                 }
                 val categories = validSessions
                     .map { session ->
-                        alarmsById[session.alarmId]?.categoryName
-                            ?.takeIf(String::isNotBlank)
+                        session.categoryName.takeIf(String::isNotBlank)
+                            ?: alarmsById[session.alarmId]?.categoryName
+                                ?.takeIf(String::isNotBlank)
+                            ?: categoryNameForSound(session.sleepSoundId)
                             ?: getString(R.string.report_unknown_category)
                     }
                     .distinct()
@@ -255,6 +259,13 @@ class SleepCalendarBottomSheetFragment : BottomSheetDialogFragment() {
                 )
             }
             .filterValues { it.totalDurationMillis > 0L }
+
+    private fun categoryNameForSound(soundId: String): String? {
+        val categoryId = LocalSoundCatalog.findCategoryId(soundId) ?: return null
+        return DefaultSoundCatalog.categories
+            .firstOrNull { category -> category.id == categoryId }
+            ?.name
+    }
 
     private fun currentDayInMonthOrFirst(): Int {
         val now = Calendar.getInstance()

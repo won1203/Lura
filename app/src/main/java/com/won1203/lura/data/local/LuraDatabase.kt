@@ -10,7 +10,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
 
 @Database(
     entities = [AlarmEntity::class, SleepSessionEntity::class],
-    version = 4,
+    version = 5,
     exportSchema = true
 )
 @TypeConverters(AlarmConverters::class)
@@ -36,6 +36,7 @@ abstract class LuraDatabase : RoomDatabase() {
                 .addMigrations(MIGRATION_1_2)
                 .addMigrations(MIGRATION_2_3)
                 .addMigrations(MIGRATION_3_4)
+                .addMigrations(MIGRATION_4_5)
                 .build()
 
         private const val DATABASE_NAME = "lura.db"
@@ -70,6 +71,27 @@ abstract class LuraDatabase : RoomDatabase() {
             override fun migrate(db: SupportSQLiteDatabase) {
                 db.execSQL("ALTER TABLE `alarms` ADD COLUMN `sleepStartHour` INTEGER NOT NULL DEFAULT 22")
                 db.execSQL("ALTER TABLE `alarms` ADD COLUMN `sleepStartMinute` INTEGER NOT NULL DEFAULT 0")
+            }
+        }
+
+        private val MIGRATION_4_5 = object : Migration(4, 5) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    "ALTER TABLE `sleep_sessions` ADD COLUMN `categoryName` TEXT NOT NULL DEFAULT ''"
+                )
+                db.execSQL(
+                    """
+                    UPDATE `sleep_sessions`
+                    SET `categoryName` = COALESCE(
+                        (
+                            SELECT `categoryName`
+                            FROM `alarms`
+                            WHERE `alarms`.`id` = `sleep_sessions`.`alarmId`
+                        ),
+                        ''
+                    )
+                    """.trimIndent()
+                )
             }
         }
     }

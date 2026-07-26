@@ -8,6 +8,7 @@ object SleepSessionEntityMapper {
     fun createPlayingEntity(
         alarmId: String,
         sleepSoundId: String,
+        categoryName: String,
         startedAtEpochMillis: Long,
         targetAlarmAtEpochMillis: Long
     ): SleepSessionEntity =
@@ -15,6 +16,7 @@ object SleepSessionEntityMapper {
             sessionId = UUID.randomUUID().toString(),
             alarmId = alarmId,
             sleepSoundId = sleepSoundId,
+            categoryName = categoryName,
             startedAtEpochMillis = startedAtEpochMillis,
             targetAlarmAtEpochMillis = targetAlarmAtEpochMillis,
             status = SleepSessionStatus.PLAYING
@@ -25,6 +27,7 @@ object SleepSessionEntityMapper {
             sessionId = entity.sessionId,
             alarmId = entity.alarmId,
             sleepSoundId = entity.sleepSoundId,
+            categoryName = entity.categoryName,
             startedAtEpochMillis = entity.startedAtEpochMillis,
             targetAlarmAtEpochMillis = entity.targetAlarmAtEpochMillis,
             status = entity.status

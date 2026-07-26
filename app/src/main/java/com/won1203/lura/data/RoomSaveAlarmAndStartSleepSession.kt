@@ -59,6 +59,7 @@ class RoomSaveAlarmAndStartSleepSession(
                     SleepSessionEntityMapper.createPlayingEntity(
                         alarmId = alarmEntity.id,
                         sleepSoundId = selectedSound.id,
+                        categoryName = selectedCategory.name,
                         startedAtEpochMillis = nowEpochMillis,
                         targetAlarmAtEpochMillis = effectiveSleepWindow.wakeAtEpochMillis
                     )

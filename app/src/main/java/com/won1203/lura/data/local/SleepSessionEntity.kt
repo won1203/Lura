@@ -16,6 +16,7 @@ data class SleepSessionEntity(
     @PrimaryKey val sessionId: String,
     val alarmId: String,
     val sleepSoundId: String,
+    val categoryName: String,
     val startedAtEpochMillis: Long,
     val targetAlarmAtEpochMillis: Long,
     val status: SleepSessionStatus

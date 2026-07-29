@@ -22,6 +22,7 @@ local.properties
 /release-keystore/
 *.jks
 *.keystore
+*.aab
 /lura_*.xml
 /lura_*.png
 agent_prompt.md

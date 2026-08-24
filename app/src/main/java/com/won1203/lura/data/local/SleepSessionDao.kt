@@ -48,6 +48,45 @@ interface SleepSessionDao {
 
     @Query(
         """
+        UPDATE sleep_sessions
+        SET status = :completedStatus
+        WHERE alarmId = :alarmId
+          AND status IN ('PLAYING', 'ALARMING')
+        """
+    )
+    fun completeActiveSessionsForAlarm(
+        alarmId: String,
+        completedStatus: SleepSessionStatus
+    ): Int
+
+    @Query(
+        """
+        UPDATE sleep_sessions
+        SET status = :completedStatus
+        WHERE status IN ('PLAYING', 'ALARMING')
+          AND targetAlarmAtEpochMillis <= :nowEpochMillis
+        """
+    )
+    fun completeExpiredActiveSessions(
+        nowEpochMillis: Long,
+        completedStatus: SleepSessionStatus
+    ): Int
+
+    @Query(
+        """
+        UPDATE sleep_sessions
+        SET targetAlarmAtEpochMillis = :targetAlarmAtEpochMillis
+        WHERE alarmId = :alarmId
+          AND status IN ('PLAYING', 'ALARMING')
+        """
+    )
+    fun updateActiveSessionTarget(
+        alarmId: String,
+        targetAlarmAtEpochMillis: Long
+    ): Int
+
+    @Query(
+        """
         SELECT * FROM sleep_sessions
         WHERE status IN ('PLAYING', 'ALARMING')
         ORDER BY startedAtEpochMillis DESC

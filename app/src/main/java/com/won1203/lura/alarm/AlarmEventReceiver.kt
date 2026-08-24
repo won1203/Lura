@@ -5,6 +5,8 @@ import android.content.Context
 import android.content.Intent
 import android.util.Log
 import com.won1203.lura.data.DisableAlarmAndCancelSleepSessionProvider
+import com.won1203.lura.data.SleepSessionStatus
+import com.won1203.lura.data.local.LuraDatabase
 import com.won1203.lura.playback.SleepPlaybackController
 import java.util.concurrent.Executors
 
@@ -78,9 +80,10 @@ class AlarmEventReceiver : BroadcastReceiver() {
     }
 
     private fun startWakeAlarm(context: Context, intent: Intent) {
+        val alarmId = intent.getStringExtra(AlarmRingingService.EXTRA_ALARM_ID).orEmpty()
         AlarmTriggerDispatcher.trigger(
             context = context,
-            alarmId = intent.getStringExtra(AlarmRingingService.EXTRA_ALARM_ID).orEmpty(),
+            alarmId = alarmId,
             alarmTitle = intent.getStringExtra(AlarmRingingService.EXTRA_ALARM_TITLE).orEmpty(),
             showRingingScreen = true,
             alarmHour = intent.optionalIntExtra(AlarmRingingService.EXTRA_ALARM_HOUR),
@@ -90,6 +93,26 @@ class AlarmEventReceiver : BroadcastReceiver() {
                 0L
             )
         )
+
+        if (alarmId.isBlank()) return
+        val appContext = context.applicationContext
+        val pendingResult = goAsync()
+        receiverExecutor.execute {
+            try {
+                runCatching {
+                    LuraDatabase.getInstance(appContext)
+                        .sleepSessionDao()
+                        .completeActiveSessionsForAlarm(
+                            alarmId = alarmId,
+                            completedStatus = SleepSessionStatus.COMPLETED
+                        )
+                }.onFailure { error ->
+                    Log.e(TAG, "Failed to complete sleep session at wake alarm: $alarmId", error)
+                }
+            } finally {
+                pendingResult.finish()
+            }
+        }
     }
 
     private fun Intent.optionalIntExtra(name: String): Int? =

@@ -17,6 +17,7 @@ import androidx.fragment.app.Fragment
 import androidx.lifecycle.lifecycleScope
 import androidx.navigation.fragment.findNavController
 import com.won1203.lura.alarm.AlarmScheduler
+import com.won1203.lura.alarm.AlarmVolumeWarning
 import com.won1203.lura.data.AlarmRepository
 import com.won1203.lura.data.AlarmRepositoryProvider
 import com.won1203.lura.data.AlarmWeekday
@@ -113,8 +114,10 @@ class AlarmSetupFragment : Fragment() {
                 return@setOnClickListener
             }
 
-            viewLifecycleOwner.lifecycleScope.launch {
-                saveAlarm(categoryId, repeatWeekdays)
+            AlarmVolumeWarning.runOrWarn(this) {
+                viewLifecycleOwner.lifecycleScope.launch {
+                    saveAlarm(categoryId, repeatWeekdays)
+                }
             }
         }
     }

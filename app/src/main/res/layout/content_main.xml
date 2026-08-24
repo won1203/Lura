@@ -47,7 +47,7 @@
                 android:contentDescription="@null"
                 android:duplicateParentState="true"
                 android:src="@drawable/ic_nav_home"
-                android:tint="@color/bottom_navigation_item_color" />
+                app:tint="@color/bottom_navigation_item_color" />
 
             <TextView
                 style="@style/TextAppearance.Lura.BottomNavigation"
@@ -78,7 +78,7 @@
                 android:contentDescription="@null"
                 android:duplicateParentState="true"
                 android:src="@drawable/ic_nav_alarm"
-                android:tint="@color/bottom_navigation_item_color" />
+                app:tint="@color/bottom_navigation_item_color" />
 
             <TextView
                 style="@style/TextAppearance.Lura.BottomNavigation"
@@ -109,7 +109,7 @@
                 android:contentDescription="@null"
                 android:duplicateParentState="true"
                 android:src="@drawable/ic_nav_history"
-                android:tint="@color/bottom_navigation_item_color" />
+                app:tint="@color/bottom_navigation_item_color" />
 
             <TextView
                 style="@style/TextAppearance.Lura.BottomNavigation"
@@ -140,7 +140,7 @@
                 android:contentDescription="@null"
                 android:duplicateParentState="true"
                 android:src="@drawable/ic_nav_report"
-                android:tint="@color/bottom_navigation_item_color" />
+                app:tint="@color/bottom_navigation_item_color" />
 
             <TextView
                 style="@style/TextAppearance.Lura.BottomNavigation"

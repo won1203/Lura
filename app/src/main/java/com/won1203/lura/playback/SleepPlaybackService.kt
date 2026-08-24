@@ -8,8 +8,6 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.ServiceInfo
 import android.os.Build
-import android.os.Handler
-import android.os.Looper
 import android.util.Log
 import androidx.annotation.OptIn
 import androidx.media3.common.AudioAttributes
@@ -21,9 +19,7 @@ import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.session.MediaSession
 import androidx.media3.session.MediaSessionService
-import com.won1203.lura.alarm.AlarmAppVisibility
 import com.won1203.lura.alarm.AlarmRingingService
-import com.won1203.lura.alarm.AlarmTriggerDispatcher
 import com.won1203.lura.MainActivity
 import com.won1203.lura.R
 import com.won1203.lura.data.AlarmRepositoryProvider
@@ -46,13 +42,8 @@ class SleepPlaybackService : MediaSessionService() {
 
     private var player: ExoPlayer? = null
     private var mediaSession: MediaSession? = null
-    private val mainHandler = Handler(Looper.getMainLooper())
     private val databaseExecutor: ExecutorService = Executors.newSingleThreadExecutor()
-    private var stopAtAlarmRunnable: Runnable? = null
-    private var fadeOutRunnable: Runnable? = null
     private var currentSessionId: String? = null
-    private var currentAlarmId: String? = null
-    private var currentAlarmTitle: String? = null
     private var currentPlaybackTitle: String? = null
     private var currentPlaybackCategoryName: String? = null
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
@@ -89,7 +80,7 @@ class SleepPlaybackService : MediaSessionService() {
             ACTION_PAUSE -> pausePlayback()
             ACTION_RESUME -> resumePlayback()
             ACTION_STOP -> stopPlayback(SleepSessionStatus.CANCELLED)
-            ACTION_FADE_OUT_AND_COMPLETE -> fadeOutAndStop(SleepSessionStatus.COMPLETED)
+            ACTION_COMPLETE -> stopPlayback(SleepSessionStatus.COMPLETED)
         }
 
         return super.onStartCommand(intent, flags, startId)
@@ -117,7 +108,6 @@ class SleepPlaybackService : MediaSessionService() {
     }
 
     override fun onDestroy() {
-        clearScheduledStop()
         serviceScope.cancel()
         databaseExecutor.shutdown()
         mediaSession?.release()
@@ -130,8 +120,6 @@ class SleepPlaybackService : MediaSessionService() {
     private fun startPlayback(request: SleepPlaybackRequest) {
         val exoPlayer = player ?: return
         currentSessionId = request.sessionId
-        currentAlarmId = request.alarmId
-        currentAlarmTitle = request.title
         currentPlaybackTitle = request.title
         currentPlaybackCategoryName = request.categoryName
         exoPlayer.volume = DEFAULT_PLAYBACK_VOLUME
@@ -154,7 +142,6 @@ class SleepPlaybackService : MediaSessionService() {
         exoPlayer.setMediaItem(mediaItem)
         exoPlayer.prepare()
         exoPlayer.play()
-        scheduleStopAtTargetAlarm(request.targetAlarmAtEpochMillis)
     }
 
     private fun startScheduledPlaybackFromAlarm(alarmId: String) {
@@ -233,72 +220,11 @@ class SleepPlaybackService : MediaSessionService() {
     }
 
     private fun stopPlayback(sessionStatus: SleepSessionStatus? = null) {
-        clearScheduledStop()
-        clearFadeOut()
         sessionStatus?.let(::updateCurrentSessionStatus)
         player?.stop()
-        currentAlarmId = null
-        currentAlarmTitle = null
         currentPlaybackTitle = null
         currentPlaybackCategoryName = null
         stopSelf()
-    }
-
-    private fun scheduleStopAtTargetAlarm(targetAlarmAtEpochMillis: Long) {
-        clearScheduledStop()
-        if (targetAlarmAtEpochMillis <= 0L) return
-
-        val delayMillis = (targetAlarmAtEpochMillis - System.currentTimeMillis()).coerceAtLeast(0L)
-        val runnable = Runnable { triggerAlarmAndFadeOut() }
-        stopAtAlarmRunnable = runnable
-        mainHandler.postDelayed(runnable, delayMillis)
-    }
-
-    private fun triggerAlarmAndFadeOut() {
-        AlarmTriggerDispatcher.trigger(
-            context = this,
-            alarmId = currentAlarmId.orEmpty(),
-            alarmTitle = currentAlarmTitle.orEmpty(),
-            showRingingScreen = AlarmAppVisibility.isForeground
-        )
-        fadeOutAndStop(SleepSessionStatus.COMPLETED)
-    }
-
-    private fun fadeOutAndStop(sessionStatus: SleepSessionStatus) {
-        clearScheduledStop()
-        clearFadeOut()
-        val exoPlayer = player ?: run {
-            stopPlayback(sessionStatus)
-            return
-        }
-
-        if (exoPlayer.playbackState == Player.STATE_IDLE || exoPlayer.playbackState == Player.STATE_ENDED) {
-            stopPlayback(sessionStatus)
-            return
-        }
-
-        val initialVolume = exoPlayer.volume.coerceAtLeast(0f)
-        if (initialVolume == 0f) {
-            stopPlayback(sessionStatus)
-            return
-        }
-
-        var step = 0
-        val runnable = object : Runnable {
-            override fun run() {
-                step += 1
-                val remainingRatio = ((FADE_OUT_STEPS - step).coerceAtLeast(0)).toFloat() / FADE_OUT_STEPS
-                exoPlayer.volume = initialVolume * remainingRatio
-                if (step >= FADE_OUT_STEPS) {
-                    stopPlayback(sessionStatus)
-                } else {
-                    fadeOutRunnable = this
-                    mainHandler.postDelayed(this, FADE_OUT_STEP_DELAY_MS)
-                }
-            }
-        }
-        fadeOutRunnable = runnable
-        mainHandler.post(runnable)
     }
 
     private fun promoteToForeground(request: SleepPlaybackRequest) {
@@ -491,16 +417,6 @@ class SleepPlaybackService : MediaSessionService() {
         notificationManager.createNotificationChannel(channel)
     }
 
-    private fun clearScheduledStop() {
-        stopAtAlarmRunnable?.let(mainHandler::removeCallbacks)
-        stopAtAlarmRunnable = null
-    }
-
-    private fun clearFadeOut() {
-        fadeOutRunnable?.let(mainHandler::removeCallbacks)
-        fadeOutRunnable = null
-    }
-
     private fun updateCurrentSessionStatus(status: SleepSessionStatus) {
         val sessionId = currentSessionId ?: return
         databaseExecutor.execute {
@@ -527,7 +443,7 @@ class SleepPlaybackService : MediaSessionService() {
         const val ACTION_PAUSE = "com.won1203.lura.playback.action.PAUSE"
         const val ACTION_RESUME = "com.won1203.lura.playback.action.RESUME"
         const val ACTION_STOP = "com.won1203.lura.playback.action.STOP"
-        const val ACTION_FADE_OUT_AND_COMPLETE = "com.won1203.lura.playback.action.FADE_OUT_AND_COMPLETE"
+        const val ACTION_COMPLETE = "com.won1203.lura.playback.action.COMPLETE"
 
         private const val SESSION_ACTIVITY_REQUEST_CODE = 1001
         private const val PAUSE_REQUEST_CODE = 1002
@@ -539,8 +455,6 @@ class SleepPlaybackService : MediaSessionService() {
         private const val TAG_SEPARATOR = " · "
         private const val MILLIS_PER_MINUTE = 60_000L
         private const val DEFAULT_PLAYBACK_VOLUME = 1f
-        private const val FADE_OUT_STEPS = 20
-        private const val FADE_OUT_STEP_DELAY_MS = 250L
         private const val TAG = "SleepPlaybackService"
     }
 

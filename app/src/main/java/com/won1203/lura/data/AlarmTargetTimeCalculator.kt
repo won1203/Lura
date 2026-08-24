@@ -4,7 +4,7 @@ import java.util.Calendar
 import java.util.TimeZone
 
 class AlarmTargetTimeCalculator(
-    private val timeZone: TimeZone = TimeZone.getDefault()
+    private val timeZone: TimeZone? = null
 ) {
     fun nextSleepWindow(
         sleepStartHour: Int,
@@ -21,7 +21,7 @@ class AlarmTargetTimeCalculator(
         require(wakeMinute in MINUTES_RANGE) { "wakeMinute must be between 0 and 59" }
 
         val enabledWeekdays = weekdays.toSet()
-        val candidate = Calendar.getInstance(timeZone).apply {
+        val candidate = Calendar.getInstance(currentTimeZone()).apply {
             timeInMillis = nowEpochMillis
             set(Calendar.SECOND, 0)
             set(Calendar.MILLISECOND, 0)
@@ -75,7 +75,7 @@ class AlarmTargetTimeCalculator(
         require(minute in MINUTES_RANGE) { "minute must be between 0 and 59" }
 
         val enabledWeekdays = weekdays.toSet()
-        val candidate = Calendar.getInstance(timeZone).apply {
+        val candidate = Calendar.getInstance(currentTimeZone()).apply {
             timeInMillis = nowEpochMillis
             set(Calendar.SECOND, 0)
             set(Calendar.MILLISECOND, 0)
@@ -116,6 +116,8 @@ class AlarmTargetTimeCalculator(
     ): Boolean =
         ((sleepStartHour * MINUTES_PER_HOUR) + sleepStartMinute) >=
             ((wakeHour * MINUTES_PER_HOUR) + wakeMinute)
+
+    private fun currentTimeZone(): TimeZone = timeZone ?: TimeZone.getDefault()
 
     private companion object {
         val HOURS_RANGE = 0..23

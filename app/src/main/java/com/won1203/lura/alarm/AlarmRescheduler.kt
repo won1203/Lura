@@ -3,6 +3,8 @@ package com.won1203.lura.alarm
 import android.content.Context
 import android.util.Log
 import com.won1203.lura.data.AlarmRepositoryProvider
+import com.won1203.lura.data.SleepSessionStatus
+import com.won1203.lura.data.local.LuraDatabase
 import com.won1203.lura.playback.SleepPlaybackController
 import java.util.concurrent.Executors
 
@@ -29,21 +31,49 @@ object AlarmRescheduler {
         }
     }
 
-    fun restoreEnabledAlarms(context: Context) {
+    fun restoreEnabledAlarms(
+        context: Context,
+        restorePlaybackInActiveWindow: Boolean = true,
+        reconcileExpiredSessions: Boolean = true,
+        onComplete: () -> Unit = {}
+    ) {
         val appContext = context.applicationContext
         executor.execute {
-            runCatching {
-                AlarmRepositoryProvider.get(appContext)
-                    .getAlarms()
-                    .filter { it.isEnabled }
-                    .forEach { alarm ->
-                        val plan = AlarmScheduler.schedule(appContext, alarm)
-                        if (plan?.sleepWindow?.contains(System.currentTimeMillis()) == true) {
-                            SleepPlaybackController.startScheduledAlarm(appContext, alarm.id)
-                        }
+            try {
+                runCatching {
+                    if (reconcileExpiredSessions) {
+                        LuraDatabase.getInstance(appContext)
+                            .sleepSessionDao()
+                            .completeExpiredActiveSessions(
+                                nowEpochMillis = System.currentTimeMillis(),
+                                completedStatus = SleepSessionStatus.COMPLETED
+                            )
                     }
-            }.onFailure { error ->
-                Log.e(TAG, "Failed to restore enabled alarms.", error)
+                    AlarmRepositoryProvider.get(appContext)
+                        .getAlarms()
+                        .filter { it.isEnabled }
+                        .forEach { alarm ->
+                            val plan = AlarmScheduler.schedule(appContext, alarm)
+                            plan?.let {
+                                LuraDatabase.getInstance(appContext)
+                                    .sleepSessionDao()
+                                    .updateActiveSessionTarget(
+                                        alarmId = alarm.id,
+                                        targetAlarmAtEpochMillis = it.sleepWindow.wakeAtEpochMillis
+                                    )
+                            }
+                            if (
+                                restorePlaybackInActiveWindow &&
+                                plan?.sleepWindow?.contains(System.currentTimeMillis()) == true
+                            ) {
+                                SleepPlaybackController.startScheduledAlarm(appContext, alarm.id)
+                            }
+                        }
+                }.onFailure { error ->
+                    Log.e(TAG, "Failed to restore enabled alarms.", error)
+                }
+            } finally {
+                onComplete()
             }
         }
     }

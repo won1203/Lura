@@ -28,7 +28,6 @@ class AlarmRingingService : Service() {
     private val mainHandler = Handler(Looper.getMainLooper())
     private var mediaPlayer: MediaPlayer? = null
     private var toneGenerator: ToneGenerator? = null
-    private var startRingingRunnable: Runnable? = null
     private var autoStopRunnable: Runnable? = null
     private var fallbackToneRunnable: Runnable? = null
     private var currentAlarmId: String = ""
@@ -74,13 +73,11 @@ class AlarmRingingService : Service() {
             triggerAtEpochMillis = triggerAtEpochMillis
         )
         promoteToForeground(alarmId, alarmTitle, alarmHour, alarmMinute, triggerAtEpochMillis)
-        SleepPlaybackController.fadeOutAndComplete(this)
+        SleepPlaybackController.complete(this)
 
         clearCallbacks()
         releasePlayer()
-        startRingingRunnable = Runnable { startRinging() }.also {
-            mainHandler.postDelayed(it, SLEEP_FADE_OUT_DURATION_MS)
-        }
+        startRinging()
         autoStopRunnable = Runnable { stopAlarm() }.also {
             mainHandler.postDelayed(it, MAX_ALARM_RING_DURATION_MS)
         }
@@ -166,10 +163,8 @@ class AlarmRingingService : Service() {
     }
 
     private fun clearCallbacks() {
-        startRingingRunnable?.let(mainHandler::removeCallbacks)
         autoStopRunnable?.let(mainHandler::removeCallbacks)
         fallbackToneRunnable?.let(mainHandler::removeCallbacks)
-        startRingingRunnable = null
         autoStopRunnable = null
         fallbackToneRunnable = null
     }
@@ -385,7 +380,6 @@ class AlarmRingingService : Service() {
         private const val ALARM_SNOOZE_REQUEST_CODE = 3004
         private const val COMPACT_STOP_ACTION_INDEX = 0
         private const val ALARM_NOTIFICATION_CHANNEL_ID = "alarm_ringing_full_screen"
-        private const val SLEEP_FADE_OUT_DURATION_MS = 5_000L
         private const val SNOOZE_DURATION_MS = 5 * 60 * 1_000L
         private const val MAX_ALARM_RING_DURATION_MS = 10 * 60 * 1_000L
         private const val FALLBACK_TONE_VOLUME = 100

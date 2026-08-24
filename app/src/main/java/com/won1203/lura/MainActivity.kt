@@ -1,9 +1,13 @@
 package com.won1203.lura
 
 import android.Manifest
+import android.app.NotificationManager
+import android.content.Intent
 import android.content.pm.PackageManager
+import android.net.Uri
 import android.os.Build
 import android.os.Bundle
+import android.provider.Settings
 import android.view.View
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
@@ -12,11 +16,14 @@ import androidx.navigation.NavController
 import androidx.navigation.NavOptions
 import androidx.navigation.findNavController
 import com.won1203.lura.alarm.AlarmAppVisibility
+import com.won1203.lura.alarm.AlarmRescheduler
 import com.won1203.lura.databinding.ActivityMainBinding
+import com.google.android.material.dialog.MaterialAlertDialogBuilder
 
 class MainActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityMainBinding
+    private var fullScreenIntentDialogShown = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -26,7 +33,13 @@ class MainActivity : AppCompatActivity() {
 
         val navController = findNavController(R.id.nav_host_fragment_content_main)
         setupBottomNavigation(navController)
-        requestNotificationPermissionIfNeeded()
+        AlarmRescheduler.restoreEnabledAlarms(
+            context = applicationContext,
+            restorePlaybackInActiveWindow = false
+        )
+        if (!requestNotificationPermissionIfNeeded()) {
+            checkFullScreenIntentPermission()
+        }
     }
 
     override fun onStart() {
@@ -95,12 +108,12 @@ class MainActivity : AppCompatActivity() {
             .setPopUpTo(R.id.homeFragment, false)
             .build()
 
-    private fun requestNotificationPermissionIfNeeded() {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) return
+    private fun requestNotificationPermissionIfNeeded(): Boolean {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) return false
 
         val permission = Manifest.permission.POST_NOTIFICATIONS
         if (ContextCompat.checkSelfPermission(this, permission) == PackageManager.PERMISSION_GRANTED) {
-            return
+            return false
         }
 
         ActivityCompat.requestPermissions(
@@ -108,6 +121,61 @@ class MainActivity : AppCompatActivity() {
             arrayOf(permission),
             POST_NOTIFICATIONS_REQUEST_CODE
         )
+        return true
+    }
+
+    override fun onRequestPermissionsResult(
+        requestCode: Int,
+        permissions: Array<out String>,
+        grantResults: IntArray
+    ) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        if (requestCode != POST_NOTIFICATIONS_REQUEST_CODE) return
+
+        if (grantResults.firstOrNull() == PackageManager.PERMISSION_GRANTED) {
+            checkFullScreenIntentPermission()
+        } else {
+            showNotificationPermissionDialog()
+        }
+    }
+
+    private fun showNotificationPermissionDialog() {
+        MaterialAlertDialogBuilder(this)
+            .setTitle(R.string.notification_permission_required_title)
+            .setMessage(R.string.notification_permission_required_message)
+            .setNegativeButton(R.string.permission_dialog_later) { _, _ ->
+                checkFullScreenIntentPermission()
+            }
+            .setPositiveButton(R.string.permission_dialog_open_settings) { _, _ ->
+                startActivity(
+                    Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS)
+                        .putExtra(Settings.EXTRA_APP_PACKAGE, packageName)
+                )
+            }
+            .show()
+    }
+
+    private fun checkFullScreenIntentPermission() {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.UPSIDE_DOWN_CAKE) return
+        if (fullScreenIntentDialogShown) return
+
+        val notificationManager = getSystemService(NotificationManager::class.java)
+        if (notificationManager.canUseFullScreenIntent()) return
+
+        fullScreenIntentDialogShown = true
+        MaterialAlertDialogBuilder(this)
+            .setTitle(R.string.full_screen_alarm_permission_title)
+            .setMessage(R.string.full_screen_alarm_permission_message)
+            .setNegativeButton(R.string.permission_dialog_later, null)
+            .setPositiveButton(R.string.permission_dialog_open_settings) { _, _ ->
+                startActivity(
+                    Intent(
+                        Settings.ACTION_MANAGE_APP_USE_FULL_SCREEN_INTENT,
+                        Uri.parse("package:$packageName")
+                    )
+                )
+            }
+            .show()
     }
 
     companion object {

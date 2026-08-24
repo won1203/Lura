@@ -128,7 +128,7 @@
                         android:foreground="?attr/selectableItemBackgroundBorderless"
                         android:padding="10dp"
                         android:src="@drawable/ic_nav_report"
-                        android:tint="@color/lura_accent" />
+                        app:tint="@color/lura_accent" />
                 </LinearLayout>
 
                 <LinearLayout

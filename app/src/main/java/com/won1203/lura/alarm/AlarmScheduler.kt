@@ -117,7 +117,7 @@ object AlarmScheduler {
             alarmManager.cancel(operation)
             operation.cancel()
         }
-        cancelLegacySnoozeBroadcastOperation(appContext, alarmManager, alarmId)
+        cancelLegacySnoozeActivityOperation(appContext, alarmManager, alarmId)
     }
 
     fun cancelAll(context: Context, alarms: List<AlarmSchedule>) {
@@ -263,27 +263,18 @@ object AlarmScheduler {
         pendingIntentFlag: Int,
         triggerAtEpochMillis: Long
     ): PendingIntent =
-        if (eventType == AlarmEventType.WAKE_ALARM) {
-            requireNotNull(
-                createWakeActivityOperation(
-                    context = context,
-                    alarmId = alarm.id,
-                    alarmTitle = alarm.soundTitle,
-                    triggerAtEpochMillis = triggerAtEpochMillis,
-                    alarmHour = alarm.hour,
-                    alarmMinute = alarm.minute,
-                    requestCode = stableRequestCode(alarm.id, eventType),
-                    pendingIntentFlag = pendingIntentFlag
-                )
-            )
-        } else {
-            createAlarmOperation(
+        requireNotNull(
+            createBroadcastAlarmOperation(
                 context = context,
-                alarm = alarm,
+                alarmId = alarm.id,
                 eventType = eventType,
-                pendingIntentFlag = pendingIntentFlag
+                pendingIntentFlag = pendingIntentFlag,
+                alarmTitle = alarm.soundTitle,
+                triggerAtEpochMillis = triggerAtEpochMillis,
+                alarmHour = alarm.hour,
+                alarmMinute = alarm.minute
             )
-        }
+        )
 
     fun scheduleSnooze(
         context: Context,
@@ -321,28 +312,32 @@ object AlarmScheduler {
         alarmHour: Int? = null,
         alarmMinute: Int? = null
     ): PendingIntent? =
-        createWakeActivityOperation(
-            context = context,
-            alarmId = alarmId,
-            alarmTitle = alarmTitle,
-            triggerAtEpochMillis = triggerAtEpochMillis,
-            alarmHour = alarmHour,
-            alarmMinute = alarmMinute,
-            requestCode = stableSnoozeRequestCode(alarmId),
-            pendingIntentFlag = pendingIntentFlag
-        )
-
-    private fun cancelLegacySnoozeBroadcastOperation(
-        context: Context,
-        alarmManager: AlarmManager,
-        alarmId: String
-    ) {
         createBroadcastAlarmOperation(
             context = context,
             alarmId = alarmId,
             eventType = AlarmEventType.WAKE_ALARM,
-            pendingIntentFlag = PendingIntent.FLAG_NO_CREATE,
+            pendingIntentFlag = pendingIntentFlag,
+            alarmTitle = alarmTitle,
+            triggerAtEpochMillis = triggerAtEpochMillis,
+            alarmHour = alarmHour,
+            alarmMinute = alarmMinute,
             requestCodeOverride = stableSnoozeRequestCode(alarmId)
+        )
+
+    private fun cancelLegacySnoozeActivityOperation(
+        context: Context,
+        alarmManager: AlarmManager,
+        alarmId: String
+    ) {
+        createWakeActivityOperation(
+            context = context,
+            alarmId = alarmId,
+            alarmTitle = "",
+            triggerAtEpochMillis = 0L,
+            alarmHour = null,
+            alarmMinute = null,
+            requestCode = stableSnoozeRequestCode(alarmId),
+            pendingIntentFlag = PendingIntent.FLAG_NO_CREATE
         )?.let { operation ->
             alarmManager.cancel(operation)
             operation.cancel()

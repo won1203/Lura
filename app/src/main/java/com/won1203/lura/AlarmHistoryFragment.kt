@@ -15,6 +15,7 @@ import androidx.fragment.app.Fragment
 import androidx.lifecycle.lifecycleScope
 import androidx.navigation.fragment.findNavController
 import com.won1203.lura.alarm.AlarmScheduler
+import com.won1203.lura.alarm.AlarmVolumeWarning
 import com.won1203.lura.data.AlarmRepository
 import com.won1203.lura.data.AlarmRepositoryProvider
 import com.won1203.lura.data.AlarmSchedule
@@ -159,12 +160,11 @@ class AlarmHistoryFragment : Fragment() {
                 showWeekdayEditDialog(alarm)
             }
         )
-        itemView.findViewById<TextView>(R.id.alarm_status).text = getStatusText(alarm.isEnabled)
-
         val enabledSwitch = itemView.findViewById<SwitchMaterial>(R.id.alarm_enabled_switch)
         // View 재사용 여부와 무관하게 초기 checked 세팅이 저장소 갱신 이벤트로 오인되지 않게 분리한다.
         enabledSwitch.setOnCheckedChangeListener(null)
         enabledSwitch.isChecked = alarm.isEnabled
+        enabledSwitch.contentDescription = getStatusText(alarm.isEnabled)
         enabledSwitch.setOnCheckedChangeListener(createAlarmToggleListener(alarm))
 
         itemView.findViewById<MaterialButton>(R.id.delete_alarm_button).setOnClickListener {
@@ -562,6 +562,12 @@ class AlarmHistoryFragment : Fragment() {
     }
 
     private fun enableAlarmAndStartPlayback(alarm: AlarmSchedule) {
+        AlarmVolumeWarning.runOrWarn(this) {
+            enableAlarmAndStartPlaybackAfterVolumeCheck(alarm)
+        }
+    }
+
+    private fun enableAlarmAndStartPlaybackAfterVolumeCheck(alarm: AlarmSchedule) {
         if (alarm.soundId == UnselectedAlarmSound.SOUND_ID) {
             Toast.makeText(
                 requireContext(),

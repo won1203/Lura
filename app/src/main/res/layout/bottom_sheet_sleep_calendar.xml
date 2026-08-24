@@ -37,7 +37,7 @@
                 android:contentDescription="@string/report_calendar_previous_month_content_description"
                 android:padding="10dp"
                 android:src="@drawable/ic_chevron_left_24"
-                android:tint="@color/lura_accent" />
+                app:tint="@color/lura_accent" />
 
             <TextView
                 android:id="@+id/calendar_month_title"
@@ -58,7 +58,7 @@
                 android:contentDescription="@string/report_calendar_next_month_content_description"
                 android:padding="10dp"
                 android:src="@drawable/ic_chevron_right_24"
-                android:tint="@color/lura_accent" />
+                app:tint="@color/lura_accent" />
 
             <ImageButton
                 android:id="@+id/close_button"
@@ -68,7 +68,7 @@
                 android:contentDescription="@string/report_calendar_close_content_description"
                 android:padding="10dp"
                 android:src="@drawable/ic_close_24"
-                android:tint="@color/lura_text_primary" />
+                app:tint="@color/lura_text_primary" />
         </LinearLayout>
 
         <com.google.android.material.card.MaterialCardView

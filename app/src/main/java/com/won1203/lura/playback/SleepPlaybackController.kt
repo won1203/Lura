@@ -29,11 +29,11 @@ object SleepPlaybackController {
         )
     }
 
-    fun fadeOutAndComplete(context: Context) {
+    fun complete(context: Context) {
         val appContext = context.applicationContext
         appContext.startService(
             Intent(appContext, SleepPlaybackService::class.java)
-                .setAction(SleepPlaybackService.ACTION_FADE_OUT_AND_COMPLETE)
+                .setAction(SleepPlaybackService.ACTION_COMPLETE)
         )
     }
 }

@@ -116,6 +116,16 @@
     <string name="alarm_ringing_default_title">Lura 알람</string>
     <string name="alarm_ringing_stop">중단</string>
     <string name="exact_alarm_schedule_failed">정확한 알람 예약 권한이 없어 알람을 활성화하지 못했습니다.</string>
+    <string name="notification_permission_required_title">알림 권한이 필요합니다</string>
+    <string name="notification_permission_required_message">알람 화면과 끄기 버튼을 표시하려면 알림 권한을 허용해 주세요. 권한이 없으면 알람 사용이 불편할 수 있습니다.</string>
+    <string name="full_screen_alarm_permission_title">전체 화면 알람을 허용해 주세요</string>
+    <string name="full_screen_alarm_permission_message">화면이 잠겨 있을 때 알람 화면을 바로 표시하려면 전체 화면 알람 권한이 필요합니다.</string>
+    <string name="permission_dialog_open_settings">설정 열기</string>
+    <string name="permission_dialog_later">나중에</string>
+    <string name="alarm_volume_zero_title">알람 음량이 0입니다</string>
+    <string name="alarm_volume_zero_message">현재 상태에서는 기상 알람 소리가 들리지 않을 수 있습니다. 알람 음량을 높인 뒤 저장하는 것을 권장합니다.</string>
+    <string name="alarm_volume_open_settings">음량 설정 열기</string>
+    <string name="alarm_volume_continue">그대로 진행</string>
     <string name="alarm_ringing_screen_header">ALARM</string>
     <string name="alarm_ringing_screen_message">설정한 알람 시간이 되었습니다.</string>
     <string name="alarm_ringing_time_format">%1$02d:%2$02d</string>
